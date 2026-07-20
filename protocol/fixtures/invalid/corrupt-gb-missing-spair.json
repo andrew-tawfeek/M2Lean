@@ -1,0 +1,781 @@
+{
+ "m2leanVersion": "0.1.0",
+ "documentId": "fixture-corrupt-gb-missing-spair",
+ "objects": [
+  {
+   "id": "k1",
+   "kind": "RationalField"
+  },
+  {
+   "id": "R2",
+   "kind": "PolynomialRing",
+   "coefficients": "k1",
+   "variables": [
+    "x",
+    "y",
+    "z",
+    "w"
+   ],
+   "monomialOrder": {
+    "kind": "GRevLex"
+   }
+  },
+  {
+   "id": "I3",
+   "kind": "Ideal",
+   "ring": "R2",
+   "generators": [
+    {
+     "terms": [
+      {
+       "coefficient": {
+        "num": "-1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        2,
+        0,
+        0
+       ]
+      },
+      {
+       "coefficient": {
+        "num": "1",
+        "den": "1"
+       },
+       "exponents": [
+        1,
+        0,
+        1,
+        0
+       ]
+      }
+     ]
+    },
+    {
+     "terms": [
+      {
+       "coefficient": {
+        "num": "-1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        1,
+        1,
+        0
+       ]
+      },
+      {
+       "coefficient": {
+        "num": "1",
+        "den": "1"
+       },
+       "exponents": [
+        1,
+        0,
+        0,
+        1
+       ]
+      }
+     ]
+    },
+    {
+     "terms": [
+      {
+       "coefficient": {
+        "num": "-1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        0,
+        2,
+        0
+       ]
+      },
+      {
+       "coefficient": {
+        "num": "1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        1,
+        0,
+        1
+       ]
+      }
+     ]
+    },
+    {
+     "terms": [
+      {
+       "coefficient": {
+        "num": "1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        1,
+        0,
+        0
+       ]
+      },
+      {
+       "coefficient": {
+        "num": "-1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        0,
+        0,
+        0
+       ]
+      }
+     ]
+    },
+    {
+     "terms": [
+      {
+       "coefficient": {
+        "num": "1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        0,
+        1,
+        0
+       ]
+      }
+     ]
+    },
+    {
+     "terms": [
+      {
+       "coefficient": {
+        "num": "1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        0,
+        0,
+        1
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "I4",
+   "kind": "Ideal",
+   "ring": "R2",
+   "generators": [
+    {
+     "terms": [
+      {
+       "coefficient": {
+        "num": "-1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        2,
+        0,
+        0
+       ]
+      },
+      {
+       "coefficient": {
+        "num": "1",
+        "den": "1"
+       },
+       "exponents": [
+        1,
+        0,
+        1,
+        0
+       ]
+      }
+     ]
+    },
+    {
+     "terms": [
+      {
+       "coefficient": {
+        "num": "-1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        1,
+        1,
+        0
+       ]
+      },
+      {
+       "coefficient": {
+        "num": "1",
+        "den": "1"
+       },
+       "exponents": [
+        1,
+        0,
+        0,
+        1
+       ]
+      }
+     ]
+    },
+    {
+     "terms": [
+      {
+       "coefficient": {
+        "num": "-1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        0,
+        2,
+        0
+       ]
+      },
+      {
+       "coefficient": {
+        "num": "1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        1,
+        0,
+        1
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F5",
+   "kind": "GradedFreeModule",
+   "ring": "R2",
+   "degrees": [
+    0
+   ]
+  },
+  {
+   "id": "F6",
+   "kind": "GradedFreeModule",
+   "ring": "R2",
+   "degrees": [
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "id": "F7",
+   "kind": "GradedFreeModule",
+   "ring": "R2",
+   "degrees": [
+    3,
+    3
+   ]
+  },
+  {
+   "id": "d8",
+   "kind": "Matrix",
+   "ring": "R2",
+   "rows": 1,
+   "cols": 3,
+   "entries": [
+    [
+     {
+      "terms": [
+       {
+        "coefficient": {
+         "num": "1",
+         "den": "1"
+        },
+        "exponents": [
+         0,
+         2,
+         0,
+         0
+        ]
+       },
+       {
+        "coefficient": {
+         "num": "-1",
+         "den": "1"
+        },
+        "exponents": [
+         1,
+         0,
+         1,
+         0
+        ]
+       }
+      ]
+     },
+     {
+      "terms": [
+       {
+        "coefficient": {
+         "num": "1",
+         "den": "1"
+        },
+        "exponents": [
+         0,
+         1,
+         1,
+         0
+        ]
+       },
+       {
+        "coefficient": {
+         "num": "-1",
+         "den": "1"
+        },
+        "exponents": [
+         1,
+         0,
+         0,
+         1
+        ]
+       }
+      ]
+     },
+     {
+      "terms": [
+       {
+        "coefficient": {
+         "num": "1",
+         "den": "1"
+        },
+        "exponents": [
+         0,
+         0,
+         2,
+         0
+        ]
+       },
+       {
+        "coefficient": {
+         "num": "-1",
+         "den": "1"
+        },
+        "exponents": [
+         0,
+         1,
+         0,
+         1
+        ]
+       }
+      ]
+     }
+    ]
+   ]
+  },
+  {
+   "id": "d9",
+   "kind": "Matrix",
+   "ring": "R2",
+   "rows": 3,
+   "cols": 2,
+   "entries": [
+    [
+     {
+      "terms": [
+       {
+        "coefficient": {
+         "num": "-1",
+         "den": "1"
+        },
+        "exponents": [
+         0,
+         0,
+         1,
+         0
+        ]
+       }
+      ]
+     },
+     {
+      "terms": [
+       {
+        "coefficient": {
+         "num": "1",
+         "den": "1"
+        },
+        "exponents": [
+         0,
+         0,
+         0,
+         1
+        ]
+       }
+      ]
+     }
+    ],
+    [
+     {
+      "terms": [
+       {
+        "coefficient": {
+         "num": "1",
+         "den": "1"
+        },
+        "exponents": [
+         0,
+         1,
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     {
+      "terms": [
+       {
+        "coefficient": {
+         "num": "-1",
+         "den": "1"
+        },
+        "exponents": [
+         0,
+         0,
+         1,
+         0
+        ]
+       }
+      ]
+     }
+    ],
+    [
+     {
+      "terms": [
+       {
+        "coefficient": {
+         "num": "-1",
+         "den": "1"
+        },
+        "exponents": [
+         1,
+         0,
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     {
+      "terms": [
+       {
+        "coefficient": {
+         "num": "1",
+         "den": "1"
+        },
+        "exponents": [
+         0,
+         1,
+         0,
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "id": "gb1",
+   "kind": "GroebnerBasis",
+   "ideal": "I4",
+   "basis": [
+    {
+     "terms": [
+      {
+       "coefficient": {
+        "num": "1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        0,
+        2,
+        0
+       ]
+      },
+      {
+       "coefficient": {
+        "num": "-1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        1,
+        0,
+        1
+       ]
+      }
+     ]
+    },
+    {
+     "terms": [
+      {
+       "coefficient": {
+        "num": "1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        1,
+        1,
+        0
+       ]
+      },
+      {
+       "coefficient": {
+        "num": "-1",
+        "den": "1"
+       },
+       "exponents": [
+        1,
+        0,
+        0,
+        1
+       ]
+      }
+     ]
+    },
+    {
+     "terms": [
+      {
+       "coefficient": {
+        "num": "1",
+        "den": "1"
+       },
+       "exponents": [
+        0,
+        2,
+        0,
+        0
+       ]
+      },
+      {
+       "coefficient": {
+        "num": "-1",
+        "den": "1"
+       },
+       "exponents": [
+        1,
+        0,
+        1,
+        0
+       ]
+      }
+     ]
+    }
+   ],
+   "evidence": {
+    "basisCofactors": [
+     [
+      {
+       "terms": []
+      },
+      {
+       "terms": []
+      },
+      {
+       "terms": [
+        {
+         "coefficient": {
+          "num": "-1",
+          "den": "1"
+         },
+         "exponents": [
+          0,
+          0,
+          0,
+          0
+         ]
+        }
+       ]
+      }
+     ],
+     [
+      {
+       "terms": []
+      },
+      {
+       "terms": [
+        {
+         "coefficient": {
+          "num": "-1",
+          "den": "1"
+         },
+         "exponents": [
+          0,
+          0,
+          0,
+          0
+         ]
+        }
+       ]
+      },
+      {
+       "terms": []
+      }
+     ],
+     [
+      {
+       "terms": [
+        {
+         "coefficient": {
+          "num": "-1",
+          "den": "1"
+         },
+         "exponents": [
+          0,
+          0,
+          0,
+          0
+         ]
+        }
+       ]
+      },
+      {
+       "terms": []
+      },
+      {
+       "terms": []
+      }
+     ]
+    ],
+    "generatorCofactors": [
+     [
+      {
+       "terms": []
+      },
+      {
+       "terms": []
+      },
+      {
+       "terms": [
+        {
+         "coefficient": {
+          "num": "-1",
+          "den": "1"
+         },
+         "exponents": [
+          0,
+          0,
+          0,
+          0
+         ]
+        }
+       ]
+      }
+     ],
+     [
+      {
+       "terms": []
+      },
+      {
+       "terms": [
+        {
+         "coefficient": {
+          "num": "-1",
+          "den": "1"
+         },
+         "exponents": [
+          0,
+          0,
+          0,
+          0
+         ]
+        }
+       ]
+      },
+      {
+       "terms": []
+      }
+     ],
+     [
+      {
+       "terms": [
+        {
+         "coefficient": {
+          "num": "-1",
+          "den": "1"
+         },
+         "exponents": [
+          0,
+          0,
+          0,
+          0
+         ]
+        }
+       ]
+      },
+      {
+       "terms": []
+      },
+      {
+       "terms": []
+      }
+     ]
+    ],
+    "sPairs": [
+     {
+      "i": 1,
+      "j": 2,
+      "quotients": [
+       {
+        "terms": [
+         {
+          "coefficient": {
+           "num": "1",
+           "den": "1"
+          },
+          "exponents": [
+           1,
+           0,
+           0,
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "terms": []
+       },
+       {
+        "terms": []
+       }
+      ]
+     }
+    ]
+   }
+  }
+ ],
+ "provenance": {
+  "producer": "Macaulay2",
+  "producerVersion": "1.24.11",
+  "packageVersion": "0.1.0",
+  "algorithm": "gb (engine default)",
+  "options": {},
+  "deterministic": true
+ },
+ "_expectRejection": "verification: a required (non-coprime) S-pair certificate was removed"
+}

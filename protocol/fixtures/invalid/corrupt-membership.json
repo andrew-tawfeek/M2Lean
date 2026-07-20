@@ -1,0 +1,31 @@
+{
+  "m2leanVersion": "0.1.0",
+  "documentId": "fixture-corrupt-membership",
+  "_expectRejection": "verification: cofactors give (x+y) + 2(x-y) = 3x - y, which is not the claimed element 2x",
+  "objects": [
+    { "id": "QQ", "kind": "RationalField" },
+    { "id": "R", "kind": "PolynomialRing", "coefficients": "QQ",
+      "variables": ["x", "y"], "monomialOrder": { "kind": "GRevLex" } },
+    { "id": "I", "kind": "Ideal", "ring": "R", "generators": [
+      { "terms": [
+        { "coefficient": { "num": "1", "den": "1" }, "exponents": [1, 0] },
+        { "coefficient": { "num": "1", "den": "1" }, "exponents": [0, 1] } ] },
+      { "terms": [
+        { "coefficient": { "num": "1", "den": "1" }, "exponents": [1, 0] },
+        { "coefficient": { "num": "-1", "den": "1" }, "exponents": [0, 1] } ] }
+    ] }
+  ],
+  "claims": [
+    {
+      "id": "c1", "kind": "IdealMembership", "ideal": "I",
+      "element": { "terms": [
+        { "coefficient": { "num": "2", "den": "1" }, "exponents": [1, 0] } ] },
+      "evidence": { "cofactors": [
+        { "terms": [ { "coefficient": { "num": "1", "den": "1" }, "exponents": [0, 0] } ] },
+        { "terms": [ { "coefficient": { "num": "2", "den": "1" }, "exponents": [0, 0] } ] }
+      ] }
+    }
+  ],
+  "provenance": { "producer": "handwritten", "producerVersion": "n/a",
+    "packageVersion": "0.1.0", "deterministic": true }
+}

@@ -1,0 +1,6 @@
+*.sh    text eol=lf
+*.lean  text eol=lf
+*.m2    text eol=lf
+*.json  text eol=lf
+*.toml  text eol=lf
+lean-toolchain text eol=lf

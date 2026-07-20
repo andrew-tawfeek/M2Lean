@@ -1,0 +1,25 @@
+{
+  "m2leanVersion": "0.1.0",
+  "documentId": "fixture-lex-vs-grevlex",
+  "_comment": "Adversarial order fixture (ADR 0003). x + y^2 z is sorted [x, y^2 z] under Lex but [y^2 z, x] under GRevLex. A consumer with a wrong comparator will reject one of the two canonical ideals below.",
+  "objects": [
+    { "id": "QQ", "kind": "RationalField" },
+    { "id": "RL", "kind": "PolynomialRing", "coefficients": "QQ",
+      "variables": ["x", "y", "z"], "monomialOrder": { "kind": "Lex" } },
+    { "id": "RG", "kind": "PolynomialRing", "coefficients": "QQ",
+      "variables": ["x", "y", "z"], "monomialOrder": { "kind": "GRevLex" } },
+    { "id": "IL", "kind": "Ideal", "ring": "RL", "generators": [
+      { "terms": [
+        { "coefficient": { "num": "1", "den": "1" }, "exponents": [1, 0, 0] },
+        { "coefficient": { "num": "1", "den": "1" }, "exponents": [0, 2, 1] } ] }
+    ] },
+    { "id": "IG", "kind": "Ideal", "ring": "RG", "generators": [
+      { "terms": [
+        { "coefficient": { "num": "1", "den": "1" }, "exponents": [0, 2, 1] },
+        { "coefficient": { "num": "1", "den": "1" }, "exponents": [1, 0, 0] } ] }
+    ] }
+  ],
+  "claims": [],
+  "provenance": { "producer": "handwritten", "producerVersion": "n/a",
+    "packageVersion": "0.1.0", "deterministic": true }
+}
