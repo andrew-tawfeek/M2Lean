@@ -22,14 +22,19 @@ namespace M2Lean
 
 variable {α : Type*} [Field α] [DecidableEq α]
 
-/-- The assurance level currently carried by Gröbner-backed claims
-(`GroebnerBasis`, `NonMembership`), defined in one place so that the
-promotion from `checked` to `proved` by the Buchberger soundness
-theorem is a single change. -/
-def GroebnerSound.level : String := "checked"
+/-- The assurance level carried by Gröbner-backed claims
+(`GroebnerBasis`, `NonMembership`).  For GRevLex — Macaulay2's
+default and the order of every certificate this project produces —
+the checker has a kernel-checked soundness theorem
+(`M2Lean.Groebner.Sound`, via `buchberger_criterion`); the Lex
+soundness proof is future work, so Lex claims stay at `checked`. -/
+def GroebnerSound.level : MonOrder → String
+  | .grevlex => "proved"
+  | .lex => "checked"
 
-def GroebnerSound.acceptMessage : String :=
-  "Buchberger criterion verified from certificate (soundness theorem pending)"
+def GroebnerSound.acceptMessage : MonOrder → String
+  | .grevlex => "Buchberger criterion verified; soundness kernel-checked"
+  | .lex => "Buchberger criterion verified from certificate (Lex soundness theorem pending)"
 
 /-! ## Identity, membership, span inclusion -/
 
@@ -123,15 +128,14 @@ def checkSPair (ord : MonOrder) (basis : List (SPoly α)) (sp : SPairCert α) : 
     match leadTerm? ord bi, leadTerm? ord bj with
     | some ti, some tj =>
       leadOK ord bi && leadOK ord bj &&
-      let s : SPoly α := sparseSPoly ti tj bi bj
       sp.quotients.length == basis.length &&
-      polyEq s (combo sp.quotients basis) &&
+      polyEq (sparseSPoly ti tj bi bj) (combo sp.quotients basis) &&
       -- leading-monomial bound for every nonzero quotient product
       (List.zip sp.quotients basis).all fun (q, b) =>
-        match leadTerm? ord (mulRaw q b), leadTerm? ord s with
+        match leadTerm? ord (mulRaw q b), leadTerm? ord (sparseSPoly ti tj bi bj) with
         | none, _ => true                 -- product is zero: fine
         | some tp, some ts =>
-          leadOK ord (mulRaw q b) && leadOK ord s &&
+          leadOK ord (mulRaw q b) && leadOK ord (sparseSPoly ti tj bi bj) &&
           ord.cmp tp.exps ts.exps ≠ .gt
         | some _, none => false           -- S-poly zero but product nonzero
     | _, _ => false                       -- zero basis elements are rejected
@@ -151,7 +155,7 @@ def checkGroebner (n : Nat) (ord : MonOrder) (gens basis : List (SPoly α))
     (basisCof genCof : List (List (SPoly α))) (sps : List (SPairCert α)) : Bool :=
   (gens ++ basis ++ basisCof.flatten ++ genCof.flatten ++
     sps.flatMap (·.quotients)).all (arityLe n) &&
-  basis.all (fun b => !(normalize b).isEmpty) &&
+  basis.all (leadOK ord) &&
   checkSpanInclusion basis gens basisCof &&
   checkSpanInclusion gens basis genCof &&
   sps.all (checkSPair ord basis) &&
@@ -173,8 +177,8 @@ def checkNonMembership (n : Nat) (ord : MonOrder) (basis : List (SPoly α))
   ([f, r] ++ quots ++ basis).all (arityLe n) &&
   quots.length == basis.length &&
   polyEq f (addRaw (combo quots basis) r) &&
-  !(normalize r).isEmpty &&
-  (normalize r).all fun t => basis.all fun b =>
+  leadOK ord r &&
+  (normalizeBy ord r).all fun t => basis.all fun b =>
     leadOK ord b &&
     match leadTerm? ord b with
     | some tb => !(expsLe tb.exps t.exps)

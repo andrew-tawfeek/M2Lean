@@ -329,4 +329,193 @@ theorem cmpGRevLex_gt_iff (n : ℕ) {e₁ e₂ : List ℕ}
       exact absurd h (lt_irrefl _)
     · rfl
 
+/-! ### Structural facts about normalization outputs -/
+
+section Coeffs
+
+variable {α : Type*} [Field α] [DecidableEq α]
+
+theorem insertMerged_coeff_ne_zero {t : STerm α} {l : SPoly α}
+    (hl : ∀ s ∈ l, s.coeff ≠ 0) :
+    ∀ s ∈ insertMerged t l, s.coeff ≠ 0 := by
+  cases l with
+  | nil =>
+    intro s hs
+    by_cases h : t.coeff = 0 <;> simp [insertMerged, h] at hs
+    · rcases hs with rfl
+      simpa using h
+  | cons u rest =>
+    intro s hs
+    by_cases he : t.exps = u.exps
+    · by_cases hc : t.coeff + u.coeff = 0
+      · simp only [insertMerged, he, if_pos, hc, if_true] at hs
+        exact hl s (List.mem_cons_of_mem u hs)
+      · simp only [insertMerged, he, if_pos, hc, if_false] at hs
+        rcases List.mem_cons.mp hs with rfl | hs
+        · simpa using hc
+        · exact hl s (List.mem_cons_of_mem u hs)
+    · by_cases h0 : t.coeff = 0
+      · simp only [insertMerged, he, if_neg, h0, if_true, ite_false] at hs
+        exact hl s hs
+      · simp only [insertMerged, he, h0, ite_false] at hs
+        rcases List.mem_cons.mp hs with rfl | hs
+        · exact h0
+        · exact hl s hs
+
+theorem merge1_coeff_ne_zero (l : SPoly α) :
+    ∀ s ∈ merge1 l, s.coeff ≠ 0 := by
+  induction l with
+  | nil => intro s hs; simp [merge1] at hs
+  | cons t l ih =>
+    simp only [merge1, List.foldr_cons] at *
+    exact insertMerged_coeff_ne_zero ih
+
+theorem normalizeBy_coeff_ne_zero (ord : MonOrder) (p : SPoly α) :
+    ∀ s ∈ normalizeBy ord p, s.coeff ≠ 0 :=
+  merge1_coeff_ne_zero _
+
+theorem insertMerged_exps_mem {t : STerm α} {l : SPoly α} :
+    ∀ s ∈ insertMerged t l, s.exps = t.exps ∨ ∃ u ∈ l, s.exps = u.exps := by
+  cases l with
+  | nil =>
+    intro s hs
+    by_cases h : t.coeff = 0 <;> simp [insertMerged, h] at hs
+    · exact Or.inl (by rw [hs])
+  | cons u rest =>
+    intro s hs
+    by_cases he : t.exps = u.exps
+    · by_cases hc : t.coeff + u.coeff = 0
+      · simp only [insertMerged, he, if_pos, hc, if_true] at hs
+        exact Or.inr ⟨s, List.mem_cons_of_mem u hs, rfl⟩
+      · simp only [insertMerged, he, if_pos, hc, if_false] at hs
+        rcases List.mem_cons.mp hs with rfl | hs
+        · exact Or.inl (by simpa using he.symm)
+        · exact Or.inr ⟨s, List.mem_cons_of_mem u hs, rfl⟩
+    · by_cases h0 : t.coeff = 0
+      · simp only [insertMerged, he, if_neg, h0, if_true, ite_false] at hs
+        exact Or.inr ⟨s, hs, rfl⟩
+      · simp only [insertMerged, he, h0, ite_false] at hs
+        rcases List.mem_cons.mp hs with rfl | hs
+        · exact Or.inl rfl
+        · exact Or.inr ⟨s, hs, rfl⟩
+
+theorem merge1_exps_mem (l : SPoly α) :
+    ∀ s ∈ merge1 l, ∃ u ∈ l, s.exps = u.exps := by
+  induction l with
+  | nil => intro s hs; simp [merge1] at hs
+  | cons t l ih =>
+    simp only [merge1, List.foldr_cons] at *
+    intro s hs
+    rcases insertMerged_exps_mem s hs with h | ⟨u, hu, h⟩
+    · exact ⟨t, List.mem_cons_self .., h⟩
+    · obtain ⟨w, hw, hw'⟩ := ih u hu
+      exact ⟨w, List.mem_cons_of_mem t hw, h.trans hw'⟩
+
+theorem trimExps_length_le (e : List ℕ) : (trimExps e).length ≤ e.length := by
+  induction e with
+  | nil => simp [trimExps]
+  | cons a as ih =>
+    rw [trimExps]
+    cases h : trimExps as with
+    | nil =>
+      by_cases ha : a = 0 <;> simp [ha]
+    | cons b l =>
+      simp only [List.length_cons]
+      rw [h] at ih
+      simpa using ih
+
+/-- Normalization outputs respect the arity bound of their input. -/
+theorem normalizeBy_arity {n : ℕ} (ord : MonOrder) {p : SPoly α}
+    (hp : arityLe n p = true) :
+    ∀ s ∈ normalizeBy ord p, s.exps.length ≤ n := by
+  intro s hs
+  obtain ⟨u, hu, hexps⟩ := merge1_exps_mem _ s hs
+  have hu' : u ∈ p.map canonTerm :=
+    (List.perm_insertionSort (termGEBy ord) _).mem_iff.mp hu
+  obtain ⟨w, hw, rfl⟩ := List.mem_map.mp hu'
+  rw [hexps]
+  simp only [canonTerm]
+  refine le_trans (trimExps_length_le _) ?_
+  have := List.all_eq_true.mp hp w hw
+  simpa using this
+
+/-! ### Coefficients of interpreted term lists -/
+
+theorem coeff_toMv_of_forall_ne {n : ℕ} {p : SPoly α} {μ : Fin n →₀ ℕ}
+    (h : ∀ t ∈ p, toMon n t.exps ≠ μ) :
+    (toMv n p).coeff μ = 0 := by
+  induction p with
+  | nil => simp
+  | cons t p ih =>
+    rw [toMv_cons, coeff_add, toTerm, coeff_monomial,
+      if_neg (h t (List.mem_cons_self ..)),
+      ih fun s hs => h s (List.mem_cons_of_mem t hs), add_zero]
+
+theorem grevlex_toSyn (n : ℕ) (a : Fin n →₀ ℕ) :
+    (grevlexOrder n).toSyn a = toDegRevLex a := rfl
+
+theorem degree_toMv_le {n : ℕ} {p : SPoly α} {μ : Fin n →₀ ℕ}
+    (h : ∀ t ∈ p, toDegRevLex (toMon n t.exps) ≤ toDegRevLex μ) :
+    (grevlexOrder n).toSyn ((grevlexOrder n).degree (toMv n p)) ≤
+      (grevlexOrder n).toSyn μ := by
+  induction p with
+  | nil => simp
+  | cons t p ih =>
+    rw [toMv_cons]
+    refine le_trans (grevlexOrder n).degree_add_le (max_le ?_ ?_)
+    · refine le_trans ((grevlexOrder n).degree_monomial_le _) ?_
+      exact h t (List.mem_cons_self ..)
+    · exact ih fun s hs => h s (List.mem_cons_of_mem t hs)
+
+/-- **The lead bridge.**  When `leadOK` certifies the head of the
+GRevLex normalization, that head *is* the abstract leading term of the
+interpreted polynomial. -/
+theorem lead_bridge {n : ℕ} {p : SPoly α} {t : STerm α} {rest : SPoly α}
+    (hnorm : normalizeBy .grevlex p = t :: rest)
+    (hok : leadOK .grevlex p = true)
+    (harity : arityLe n p = true) :
+    (grevlexOrder n).degree (toMv n p) = toMon n t.exps ∧
+      (grevlexOrder n).leadingCoeff (toMv n p) = t.coeff ∧
+      toMv n p ≠ 0 := by
+  have hcoeffs := normalizeBy_coeff_ne_zero (α := α) .grevlex p
+  have harities := normalizeBy_arity (n := n) .grevlex harity
+  rw [hnorm] at hcoeffs harities
+  have htc : t.coeff ≠ 0 := hcoeffs t (List.mem_cons_self ..)
+  have htar : t.exps.length ≤ n := harities t (List.mem_cons_self ..)
+  have hrest : ∀ s ∈ rest, toDegRevLex (toMon n s.exps) < toDegRevLex (toMon n t.exps) := by
+    intro s hs
+    have hok' := hok
+    rw [leadOK, hnorm] at hok'
+    have := List.all_eq_true.mp hok' s hs
+    have hslt : cmpGRevLex s.exps t.exps = .lt := by
+      simpa [MonOrder.cmp] using this
+    exact (cmpGRevLex_lt_iff n (harities s (List.mem_cons_of_mem t hs)) htar).mp hslt
+  set μ := toMon n t.exps with hμ
+  have hp' : toMv n p = toTerm n t + toMv n rest := by
+    rw [← toMv_normalizeBy n .grevlex p, hnorm, toMv_cons]
+  have hcμ : (toMv n p).coeff μ = t.coeff := by
+    rw [hp', coeff_add, toTerm, coeff_monomial, if_pos rfl,
+      coeff_toMv_of_forall_ne fun s hs => ?_, add_zero]
+    intro habs
+    have := hrest s hs
+    rw [habs] at this
+    exact lt_irrefl _ this
+  have hne : toMv n p ≠ 0 := fun h => htc (by rw [h] at hcμ; simpa using hcμ.symm)
+  have hdegle : (grevlexOrder n).toSyn ((grevlexOrder n).degree (toMv n p)) ≤
+      (grevlexOrder n).toSyn μ := by
+    rw [hp', ← toMv_cons]
+    refine degree_toMv_le fun s hs => ?_
+    rcases List.mem_cons.mp hs with rfl | hs
+    · exact le_rfl
+    · exact le_of_lt (hrest s hs)
+  have hdegge : (grevlexOrder n).toSyn μ ≤
+      (grevlexOrder n).toSyn ((grevlexOrder n).degree (toMv n p)) :=
+    (grevlexOrder n).le_degree (by rwa [MvPolynomial.mem_support_iff, hcμ])
+  have hdeg : (grevlexOrder n).degree (toMv n p) = μ :=
+    (grevlexOrder n).toSyn.injective (le_antisymm hdegle hdegge)
+  refine ⟨hdeg, ?_, hne⟩
+  rw [MonomialOrder.leadingCoeff, hdeg, hcμ]
+
+end Coeffs
+
 end M2Lean

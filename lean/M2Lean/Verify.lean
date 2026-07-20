@@ -120,10 +120,10 @@ def runClaimIn (cv : Conv α) (d : Document) (c : PClaim) : ClaimResult :=
       match cv.polys gens, cv.polys basis, cv.rows bc, cv.rows gc,
             sps.mapM cv.spair with
       | .ok gens', .ok basis', .ok bc', .ok gc', .ok sps' =>
-        verdict c GroebnerSound.level
+        verdict c (GroebnerSound.level ord)
           (checkGroebner arity ord gens' basis' bc' gc' sps')
           "Buchberger evidence failed (span, S-pair reduction, or lm bound)"
-          GroebnerSound.acceptMessage
+          (GroebnerSound.acceptMessage ord)
       | .error e, _, _, _, _ | _, .error e, _, _, _ | _, _, .error e, _, _
       | _, _, _, .error e, _ | _, _, _, _, .error e => convErr e
     | _, _ => reject c s!"structural: '{iid}' is not an Ideal with a ring"
@@ -141,11 +141,11 @@ def runClaimIn (cv : Conv α) (d : Document) (c : PClaim) : ClaimResult :=
                 sps.mapM cv.spair, cv.poly f, cv.polys quots, cv.poly rem with
           | .ok gens', .ok basis', .ok bc', .ok gc', .ok sps', .ok f',
             .ok quots', .ok rem' =>
-            verdict c GroebnerSound.level
+            verdict c (GroebnerSound.level ord)
               (checkGroebner arity ord gens' basis' bc' gc' sps' &&
                checkNonMembership arity ord basis' f' quots' rem')
               "division data failed (identity, zero remainder, or reducibility)"
-              s!"element is NOT in the ideal ({GroebnerSound.level} via Gröbner claim '{gbId}')"
+              s!"element is NOT in the ideal ({GroebnerSound.level ord} via Gröbner claim '{gbId}')"
           | _, _, _, _, _, _, _, _ => convErr "coefficient conversion failed"
         | _, _ => reject c s!"structural: '{iid}' is not an Ideal with a ring"
     | some _ => reject c s!"structural: '{gbId}' is not a GroebnerBasis claim"

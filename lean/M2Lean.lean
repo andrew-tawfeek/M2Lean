@@ -10,3 +10,5 @@ import M2Lean.Groebner.Criterion
 import M2Lean.Groebner.DegRevLex
 import M2Lean.Examples.GaloisData
 import M2Lean.Examples.Galois
+import M2Lean.Groebner.Bridge
+import M2Lean.Groebner.Sound
