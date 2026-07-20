@@ -17,3 +17,4 @@ paper/*.synctex.gz
 # generated example outputs (kept: checked-in golden copies live in examples/)
 build/
 *.tmp
+texput.log
