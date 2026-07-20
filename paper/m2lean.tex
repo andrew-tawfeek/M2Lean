@@ -73,48 +73,34 @@
 \newcommand{\code}[1]{\texttt{#1}}
 
 \title{\textbf{M2Lean: A Certificate-Based Bridge Between\\ Macaulay2 and Lean~4}}
-\author{Andrew Tawfeek\thanks{University of Washington.
-\texttt{coffeeandproofs@gmail.com}.  The implementation described here
+\author{Andrew Tawfeek\thanks{Independent researcher.
+\texttt{atawfeek.math@gmail.com}.  The implementation described here
 was developed with the assistance of Claude (Anthropic).  Code and all
 artifacts: \url{https://github.com/andrew-tawfeek/M2Lean}.}}
-\date{July 2026}
+\date{July 2026 \,---\, version 1.0}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-Computer algebra systems and proof assistants occupy separate
-ecosystems: \M{} discovers and computes at scale but its answers carry
-no formal guarantee, while \lean{} certifies mathematics but lacks
-serious computational commutative algebra.  We present \emph{M2Lean},
-a bridge built on a simple contract: \M{} is an untrusted oracle that
-must justify its answers with \emph{certificates}, and \lean{}
-re-verifies those certificates through small checkers backed by
-kernel-checked soundness theorems.  The bridge consists of a versioned
-mathematical interchange protocol, a \M{} package that exports
-computations together with the evidence needed to reproduce their
-correctness (cofactors, change matrices, and division data realizing
-Buchberger's criterion), and a \lean{}~4 library that parses,
-validates, checks, and---for the checkers whose soundness is
-formalized---produces genuine \mathlib{} theorems.  We distinguish
-explicitly between \emph{checked} computations and \emph{proved}
-ones, and we demonstrate the full path on a flagship example: \M{}
-discovers that the cone over the twisted cubic and a line in
-$\mathbb{A}^4$ are disjoint and emits a Nullstellensatz-style
-certificate; \lean{} re-checks the certificate inside its kernel and
-concludes---with no new axioms and no \code{sorry}---that the two
-varieties have no common point over \emph{any} nontrivial commutative
-$\QQ$-algebra, a statement \M{} itself cannot even formulate.
-Corrupted certificates, including ones obtained by mutating real \M{}
-output, are rejected.  Five further condensed crossings---Newton's
-identities, Markov moves of contingency tables, separability of a
-cyclotomic polynomial, a graph-coloring Nullstellensatz certificate,
-and a Stanley--Reisner resolution---show the same pattern reaching
-into invariant theory, algebraic statistics, Galois theory,
-combinatorics, and combinatorial algebraic geometry.  We describe the
-architecture, the trust model, what each system stands to gain, and
-the road from this vertical slice to a certified computational
-commutative algebra.
+\M{} computes; \lean{} certifies.  M2Lean connects them through a
+skeptic's contract: \M{} is an untrusted oracle whose answers must
+carry \emph{certificates}---cofactors, change matrices, division
+data---which \lean{} re-verifies with small checkers backed by
+kernel-checked soundness theorems.  We present a versioned
+interchange protocol for exact commutative algebra, a \M{} package
+that exports computations with their evidence, and a \lean{}~4
+library whose accepted claims become genuine \mathlib{}
+propositions, with an explicit distinction between \emph{checked} and
+\emph{proved} assurance.  A flagship example exercises the full path:
+\M{} discovers that the cone over the twisted cubic and a line in
+$\mathbb{A}^4$ are disjoint, and \lean{} turns the certificate into a
+theorem valid over every nontrivial commutative
+$\QQ$-algebra---no new axioms, no \code{sorry}.  Corrupted
+certificates, including mutations of real \M{} output, are rejected.
+Five further examples reach into invariant theory, algebraic
+statistics, Galois theory, graph coloring, and combinatorial
+algebraic geometry.
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
