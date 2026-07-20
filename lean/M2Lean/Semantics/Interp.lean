@@ -49,6 +49,14 @@ theorem toMv_perm {p q : SPoly} (h : p.Perm q) :
     toMv n p = toMv n q :=
   (h.map (toTerm n)).sum_eq
 
+/-- Human-readable form of a term: `C c · Π xᵢ^eᵢ`.  Used to restate
+certified conclusions in terms of `MvPolynomial.X`. -/
+theorem toTerm_eq_prod (c : ℚ) (es : List Nat) :
+    toTerm n ⟨c, es⟩ = C c * ∏ i : Fin n, X i ^ es.getD i 0 := by
+  rw [toTerm, monomial_eq]
+  congr 1
+  exact Finsupp.prod_fintype _ _ fun i => pow_zero _
+
 /-! ### Multiplication -/
 
 theorem getD_zipAdd : ∀ (as bs : List Nat) (i : Nat),
@@ -85,34 +93,71 @@ theorem toMv_mulRaw (p q : SPoly) :
 
 /-! ### Normalization preserves the interpretation -/
 
+theorem toMv_insertMerged (t : STerm) (l : SPoly) :
+    toMv n (insertMerged t l) = toTerm n t + toMv n l := by
+  cases l with
+  | nil =>
+    by_cases h : t.coeff = 0 <;> simp [insertMerged, h, toTerm]
+  | cons u rest =>
+    by_cases he : t.exps = u.exps
+    · by_cases hc : t.coeff + u.coeff = 0
+      · simp only [insertMerged, he, if_pos, hc, ite_true]
+        have : toTerm n t + toTerm n u = 0 := by
+          simp [toTerm, he, ← map_add, hc]
+        simp [← add_assoc, this]
+      · simp only [insertMerged, he, if_pos, hc, ite_false]
+        simp only [toMv_cons, ← add_assoc]
+        congr 1
+        simp [toTerm, he, map_add]
+    · by_cases h0 : t.coeff = 0 <;>
+        simp [insertMerged, he, h0, toTerm]
+
 theorem toMv_merge1 (p : SPoly) : toMv n (merge1 p) = toMv n p := by
-  induction p using merge1.induct with
-  | case1 => simp [merge1]
-  | case2 t h =>
-    simp [merge1, h, toTerm, toMv]
-  | case3 t h =>
-    simp [merge1, h]
-  | case4 t₁ t₂ rest h ih =>
-    rw [merge1, if_pos h, ih]
-    simp only [toMv_cons]
-    rw [← add_assoc]
-    congr 1
-    simp [toTerm, h, map_add]
-  | case5 t₁ t₂ rest hne h0 ih =>
-    rw [merge1]
-    simp only [hne, if_neg, if_pos, h0, ite_false, ite_true]
-    rw [ih]
-    simp [toTerm, h0]
-  | case6 t₁ t₂ rest hne h0 ih =>
-    rw [merge1]
-    simp only [hne, h0, ite_false]
-    simp [ih]
+  induction p with
+  | nil => simp [merge1]
+  | cons t rest ih =>
+    simp only [merge1, List.foldr_cons] at *
+    rw [toMv_insertMerged, ih, toMv_cons]
 
 theorem toMv_sortTerms (p : SPoly) : toMv n (sortTerms p) = toMv n p :=
   toMv_perm n (List.perm_insertionSort termGE p)
 
+theorem getD_trimExps : ∀ (e : List Nat) (i : Nat),
+    (trimExps e).getD i 0 = e.getD i 0
+  | [], _ => rfl
+  | a :: as, i => by
+    have ih := getD_trimExps as
+    cases htr : trimExps as with
+    | nil =>
+      cases i with
+      | zero =>
+        by_cases h : a = 0 <;> simp [trimExps, htr, h]
+      | succ i =>
+        have h0 : as.getD i 0 = 0 := by simpa using (htr ▸ ih i).symm
+        by_cases h : a = 0 <;> simp [trimExps, htr, h] <;> simpa using h0.symm
+    | cons b l =>
+      cases i with
+      | zero => simp [trimExps, htr]
+      | succ i => simpa [trimExps, htr] using htr ▸ ih i
+
+theorem toMon_trimExps (es : List Nat) :
+    toMon n (trimExps es) = toMon n es := by
+  ext i
+  rw [toMon_apply, toMon_apply]
+  exact getD_trimExps es i
+
+theorem toTerm_canonTerm (t : STerm) :
+    toTerm n (canonTerm t) = toTerm n t := by
+  simp [canonTerm, toTerm, toMon_trimExps]
+
+theorem toMv_map_canonTerm (p : SPoly) :
+    toMv n (p.map canonTerm) = toMv n p := by
+  induction p with
+  | nil => simp
+  | cons t p ih => simp [ih, toTerm_canonTerm]
+
 theorem toMv_normalize (p : SPoly) : toMv n (normalize p) = toMv n p := by
-  rw [normalize, toMv_merge1, toMv_sortTerms]
+  rw [normalize, toMv_merge1, toMv_sortTerms, toMv_map_canonTerm]
 
 /-- Soundness of the executable equality test. -/
 theorem polyEq_sound {p q : SPoly} (h : polyEq p q = true) :

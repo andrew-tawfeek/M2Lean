@@ -89,23 +89,38 @@ instance : DecidableRel termGE := fun s t => by
 
 def sortTerms (p : SPoly) : SPoly := List.insertionSort termGE p
 
+/-- Fold step of `merge1`: prepend `t` to an already-merged tail,
+combining with the head when the exponent vectors agree and dropping
+zero coefficients.  Structural recursion only, so that certificate
+checks reduce inside the Lean kernel (`by decide`). -/
+def insertMerged (t : STerm) : SPoly → SPoly
+  | [] => if t.coeff = 0 then [] else [t]
+  | u :: rest =>
+    if t.exps = u.exps then
+      let c := t.coeff + u.coeff
+      if c = 0 then rest else ⟨c, t.exps⟩ :: rest
+    else if t.coeff = 0 then u :: rest
+    else t :: u :: rest
+
 /-- Merge adjacent terms with equal exponent vectors and drop zero
 coefficients.  Assumes (for effectiveness, not soundness) that equal
 exponent vectors are adjacent, which sorting guarantees. -/
-def merge1 : SPoly → SPoly
+def merge1 (p : SPoly) : SPoly := p.foldr insertMerged []
+
+/-- Drop trailing zero exponents, so that the same monomial written
+with different paddings (e.g. `[1]` vs `[1,0,0]`) has one canonical
+representation inside `normalize`. -/
+def trimExps : List Nat → List Nat
   | [] => []
-  | [t] => if t.coeff = 0 then [] else [t]
-  | t₁ :: t₂ :: rest =>
-    if t₁.exps = t₂.exps then
-      merge1 ({ coeff := t₁.coeff + t₂.coeff, exps := t₁.exps } :: rest)
-    else if t₁.coeff = 0 then
-      merge1 (t₂ :: rest)
-    else
-      t₁ :: merge1 (t₂ :: rest)
-  termination_by l => l.length
+  | a :: as =>
+    match trimExps as with
+    | [] => if a = 0 then [] else [a]
+    | l => a :: l
+
+def canonTerm (t : STerm) : STerm := ⟨t.coeff, trimExps t.exps⟩
 
 /-- Canonicalize a raw term list. -/
-def normalize (p : SPoly) : SPoly := merge1 (sortTerms p)
+def normalize (p : SPoly) : SPoly := merge1 (sortTerms (p.map canonTerm))
 
 /-! ## Ring operations on raw term lists -/
 
