@@ -1,0 +1,28 @@
+{
+  "m2leanVersion": "0.1.0",
+  "documentId": "fixture-poly-identity",
+  "objects": [
+    { "id": "QQ", "kind": "RationalField" },
+    { "id": "R", "kind": "PolynomialRing", "coefficients": "QQ",
+      "variables": ["x", "y"], "monomialOrder": { "kind": "GRevLex" } }
+  ],
+  "claims": [
+    {
+      "id": "c1", "kind": "PolynomialIdentity", "ring": "R",
+      "lhs": { "terms": [
+        { "coefficient": { "num": "1", "den": "1" }, "exponents": [1, 1] },
+        { "coefficient": { "num": "1", "den": "1" }, "exponents": [0, 2] },
+        { "coefficient": { "num": "1", "den": "1" }, "exponents": [2, 0] },
+        { "coefficient": { "num": "1", "den": "1" }, "exponents": [1, 1] }
+      ] },
+      "rhs": { "terms": [
+        { "coefficient": { "num": "1", "den": "1" }, "exponents": [2, 0] },
+        { "coefficient": { "num": "2", "den": "1" }, "exponents": [1, 1] },
+        { "coefficient": { "num": "1", "den": "1" }, "exponents": [0, 2] }
+      ] },
+      "evidence": {}
+    }
+  ],
+  "provenance": { "producer": "handwritten", "producerVersion": "n/a",
+    "packageVersion": "0.1.0", "deterministic": true }
+}
