@@ -1,0 +1,19 @@
+# Lean
+lean/.lake/
+lean/lakefile.olean
+*.olean
+
+# LaTeX
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.toc
+paper/*.bbl
+paper/*.blg
+paper/*.fls
+paper/*.fdb_latexmk
+paper/*.synctex.gz
+
+# generated example outputs (kept: checked-in golden copies live in examples/)
+build/
+*.tmp
