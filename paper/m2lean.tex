@@ -14,11 +14,11 @@
 \usepackage{microtype}
 
 % ---------------------------------------------------------------
-% Color scheme.  Green = Macaulay2 (untrusted computation),
+% Color scheme.  Red = Macaulay2 (untrusted computation),
 % blue = Lean (trusted verification), amber = the protocol boundary.
 % Listings are color-coded by which system owns the artifact.
 % ---------------------------------------------------------------
-\definecolor{m2col}{RGB}{0,121,64}
+\definecolor{m2col}{RGB}{158,27,50}
 \definecolor{leancol}{RGB}{28,86,178}
 \definecolor{protocol}{RGB}{176,108,0}
 \definecolor{okgreen}{RGB}{0,128,0}
@@ -256,84 +256,38 @@ becker-weispfenning}.
 
 \section{Architecture and trust model}\label{sec:trust}
 
-\subsection{The pipeline}
+\subsection{Four layers}
 
-Figure~\ref{fig:pipeline} shows the whole system on one page.  A
-document travels left to right: \M{} exports objects and claims,
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+layer & realization \\
+\midrule
+interchange representation & \code{protocol/SPEC.md}, JSON schema, fixtures \\
+semantics & \lean{}: sparse model $\to$ \code{MvPolynomial (Fin n) $\QQ$} \\
+claims and certificates & \lean{} checkers $+$ soundness theorems \\
+user-facing integrations & \M{} package; \code{m2lean-check} CLI \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A document travels left to right: \M{} exports objects and claims,
 \lean{} parses and \emph{validates} (arities, canonical scalars,
 dependency order, dimension checks---rejecting, never repairing), then
 runs one checker per claim and emits a verification report; claims
 whose checkers carry soundness theorems can additionally be consumed
-by \lean{} theorem files through the kernel.  Parsing is not proof:
-the semantics layer is what turns byte-level checks into mathematics.
+by \lean{} theorem files through the kernel
+(Figure~\ref{fig:flagship} traces one such trip end to end).  Parsing
+is not proof: the semantics layer is what turns byte-level checks
+into mathematics.
 
-\begin{figure}[t]
-\centering
-\resizebox{\textwidth}{!}{%
-\begin{tikzpicture}[
-  font=\small,
-  node distance=4mm and 7mm,
-  box/.style={draw, rounded corners=2pt, align=center,
-              inner sep=5pt, minimum height=8.5mm},
-  m2box/.style={box, draw=m2col, fill=m2col!8, text=m2col!50!black, thick},
-  pbox/.style={box, draw=protocol, fill=protocol!8, text=protocol!60!black, thick},
-  lbox/.style={box, draw=leancol, fill=leancol!7, text=leancol!50!black, thick},
-  outbox/.style={box, draw=okgreen, fill=okgreen!7, text=okgreen!40!black, thick},
-  flow/.style={-{Stealth[length=2.6mm]}, thick, draw=gray!60!black},
-  ]
-  % Macaulay2 side
-  \node[m2box] (compute) {\textbf{\M{}}\\[1pt]
-    compute: \code{gb I}, \code{res M},\\ \code{I + J == 1}, \dots};
-  \node[m2box, below=of compute] (evidence) {\code{M2Lean.m2}\\[1pt]
-    extract evidence:\\ cofactors, change matrices,\\ S-pair division data};
-  % protocol
-  \node[pbox, right=9mm of evidence] (doc) {\textbf{protocol document}\\[1pt]
-    objects $+$ claims $+$\\ evidence $+$ provenance\\ (versioned JSON)};
-  % Lean side
-  \node[lbox, right=9mm of doc] (validate) {\textbf{\lean{}}: parse,\\ validate
-    (canonical\\ forms, arities, orders)};
-  \node[lbox, below=of validate] (check) {run checkers\\
-    \code{checkMembership}, \code{checkGroebner},\\
-    \code{checkComplexPair}, \dots};
-  \node[lbox, below=of check] (sound) {soundness theorems\\
-    acceptance $\Rightarrow$ \mathlib{} prop.\\
-    (kernel-checked, no \code{sorry})};
-  % outputs
-  \node[outbox, right=9mm of check] (report) {\textbf{report}\\
-    per-claim verdict\\ $+$ assurance level};
-  \node[outbox, below=of report] (thm) {\textbf{theorems}\\
-    e.g.\ \code{twisted\_cubic\_}\\ \code{cone\_misses\_line}};
-  % arrows
-  \draw[flow] (compute) -- (evidence);
-  \draw[flow] (evidence) -- (doc);
-  \draw[flow] (doc) -- (validate);
-  \draw[flow] (validate) -- (check);
-  \draw[flow] (check) -- (sound);
-  \draw[flow] (check) -- (report);
-  \draw[flow] (sound) -| (thm);
-  \draw[flow, dashed] (report.north) to[out=90, in=0]
-    node[above, pos=0.35, font=\scriptsize\itshape, text=gray!50!black]
-    {report returned to the \M{} user} ($(compute.east)+(0,1mm)$);
-  % trust zones
-  \begin{scope}[on background layer]
-    \node[fit=(compute)(evidence)(doc), draw=badred!60, dashed, rounded corners=4pt,
-          fill=badred!3, inner sep=7pt,
-          label={[badred!80!black,font=\scriptsize\itshape]south:untrusted}] {};
-    \node[fit=(validate)(check)(sound)(thm)(report), draw=leancol!60, dashed,
-          rounded corners=4pt, fill=leancol!3, inner sep=7pt,
-          label={[leancol!80!black,font=\scriptsize\itshape]south:trusted core: kernel $+$ semantics $+$ soundness statements}] {};
-  \end{scope}
-\end{tikzpicture}%
-}
-\caption{The M2Lean pipeline.  \textcolor{m2col}{\M{} (green)} is an
-untrusted oracle; everything it produces crosses the
-\textcolor{protocol}{protocol boundary (amber)} as explicit data, and
-\textcolor{leancol}{\lean{} (blue)} accepts a claim only after an
-executable checker verifies its evidence.  A defect anywhere in the
-untrusted zone causes rejection, never a false theorem.  The same
-color coding marks all code listings in this paper.}
-\label{fig:pipeline}
-\end{figure}
+Throughout the paper, code listings are color-coded by which side of
+the trust boundary owns the artifact:
+\textcolor{m2col}{\textbf{red}} for \M{} input (untrusted
+computation and evidence generation),
+\textcolor{protocol}{\textbf{amber}} for protocol documents (the data
+crossing the boundary), and \textcolor{leancol}{\textbf{blue}} for
+\lean{} (validation, checking, and theorems).
 
 \subsection{Trusted and untrusted}
 
@@ -442,7 +396,27 @@ to the structural equality of canonical forms.
 \section{The Macaulay2 bridge package}\label{sec:m2}
 
 The package \code{m2/M2Lean.m2} exports objects and generates
-certificates using public \M{} interfaces.  Because everything it
+certificates using public \M{} interfaces.  From the user's point of
+view, encoding mathematics for the bridge is ordinary \M{}: one
+builds rings and ideals as usual, then attaches claims to a document
+and writes it out.  A complete session certifying a membership looks
+like this:
+
+\begin{lstlisting}[style=m2style]
+loadPackage "M2Lean";
+R = QQ[x,y];
+I = ideal(x+y, x-y);                        -- the mathematics, as usual
+D = newM2LeanDocument "session-1";
+membershipClaim(D, "mem1", x^3 + y^3, I);   -- computes the cofactors
+writeM2LeanDocument(D, "session-1.json");   -- crosses the boundary
+\end{lstlisting}
+
+\noindent
+\code{membershipClaim} silently does the interesting work: it divides
+the element against the ideal's Gr\"obner basis, extracts cofactors,
+re-checks the identity, and serializes everything---generators,
+element, evidence, monomial order, provenance---in the canonical
+forms of \S\ref{sec:protocol}.  Because everything the package
 produces is re-verified, it may freely use \M{}'s untrusted machinery:
 membership cofactors come from matrix division \code{f // gens I}
 against \M{}'s internal Gr\"obner engine, and basis conversion
@@ -616,14 +590,37 @@ nontrivial commutative $\QQ$-algebra.}
 \end{figure}
 
 \paragraph{Step 1: discovery (\M{}).}
-\M{} computes $I + J = (1)$, where $J = (y-1, z, w)$: the varieties
-are disjoint.  This is the kind of fact a researcher finds in
-seconds and would previously have had to re-derive by hand to use in
-a formal development.
+The mathematics is encoded in \M{} exactly as a researcher would
+write it by hand:
+
+\begin{lstlisting}[style=m2style]
+R = QQ[x,y,z,w];
+I = minors(2, matrix{{x,y,z},{y,z,w}});   -- the twisted cubic cone
+J = ideal(y - 1, z, w);                   -- the line {(t,1,0,0)}
+assert(I + J == 1);                       -- discovery: disjoint!
+\end{lstlisting}
+
+\noindent
+This is the kind of fact a researcher finds in seconds and would
+previously have had to re-derive by hand to use in a formal
+development.
 
 \paragraph{Step 2: certificate (\M{}).}
-The bridge package asks for a membership certificate for $1$ and
-obtains cofactors---in this instance
+Four claims are attached to a document and exported:
+
+\begin{lstlisting}[style=m2style]
+D = newM2LeanDocument "flagship";
+unitIdealClaim(D, "unit1", I + J);              -- 1 = sum c_i g_i
+gbClaim(D, "gb1", I);                           -- Buchberger evidence
+C = res comodule I;
+gradedComplexClaim(D, "res1", {C.dd_1, C.dd_2});
+chainComplexClaim(D, "cx1",  {C.dd_1, C.dd_2});
+writeM2LeanDocument(D, "flagship.json");
+\end{lstlisting}
+
+\noindent
+The membership certificate for $1$ carries cofactors---in this
+instance
 \[
 1 \;=\; (-1)\cdot(xz-y^2)\;+\;(-y-1)\cdot(y-1)\;+\;x\cdot z ,
 \]
@@ -837,7 +834,7 @@ The corresponding verification report:
 
 Each example below is one complete trip across the bridge, condensed
 to its core: the \M{} discovery
-(\textcolor{m2col}{green}), the certificate that crosses the protocol
+(\textcolor{m2col}{red}), the certificate that crosses the protocol
 boundary, and what \lean{} verifies
 (\textcolor{leancol}{blue}).  All five documents are generated by
 \code{examples/appendix/appendix.m2} and verified by
