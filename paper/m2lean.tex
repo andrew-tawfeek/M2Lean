@@ -22,7 +22,7 @@
   {\endMakeFramed}
 
 % ---------------------------------------------------------------
-% Color scheme.  Red = Macaulay2 (untrusted computation),
+% Color scheme.  Red = Macaulay2 (computation, outside the kernel-checked base),
 % blue = Lean (trusted verification), amber = the protocol boundary.
 % Listings are color-coded by which system owns the artifact.
 % ---------------------------------------------------------------
@@ -96,10 +96,11 @@ artifacts: \url{https://github.com/andrew-tawfeek/M2Lean}.}}
 
 \begin{abstract}
 \M{} computes; \lean{} certifies.  M2Lean connects them through a
-skeptic's contract: \M{} is an untrusted oracle whose answers must
-carry \emph{certificates}---cofactors, division data, Buchberger
-S-pair representations---which \lean{} re-verifies with small
-checkers backed by kernel-checked soundness theorems.  We present a
+certificate contract: \M{}'s answers travel with the \emph{evidence}
+behind them---cofactors, division data, Buchberger S-pair
+representations---which \lean{} re-verifies with small checkers
+backed by kernel-checked soundness theorems, so the resulting
+theorems rest on no implementation, \M{}'s or anyone's.  We present a
 versioned interchange protocol for exact commutative algebra over
 $\QQ$ and prime fields, a \M{} package that exports computations with
 their evidence and verifies them without leaving the \M{} session,
@@ -123,21 +124,28 @@ are rejected; continuous integration replays everything.
 
 Somewhere in the literature of commutative algebra, a proof reaches a
 step that reads: \emph{``a Macaulay2 computation shows that the
-minimal free resolution has Betti numbers $1, 3, 2$.''}  The referee
-does not re-run the computation.  The reader a decade later cannot:
-the session is gone, its package versions, options, and monomial-order
-conventions unrecorded.  Journals accept such sentences routinely ---
-computation inside proofs is ordinary mathematics now --- and yet each
-one is a small act of faith in three decades of highly optimized,
-unverified C++.  The anxiety is not hypothetical, and mathematics has
-already answered it once: the celebrated formalizations of the
-four-color theorem~\cite{gonthier}, the Kepler
-conjecture~\cite{hales-flyspeck}, and the Liquid Tensor
-Experiment~\cite{scholze-liquid} were, at heart, campaigns to remove
-exactly this kind of faith from exactly such computational steps.
-M2Lean is a system for removing it from computational commutative
-algebra --- routinely, cheaply, and without asking anyone to abandon
-their tools.
+minimal free resolution has Betti numbers $1, 3, 2$.''}  Journals
+accept such sentences routinely, and rightly so: \M{} is the product
+of three decades of careful development by a community of
+mathematicians, its algorithms published, its conventions documented,
+its behavior exercised daily by researchers who would notice if it
+were wrong.  What the sentence lacks is not credibility but
+\emph{permanence and portability}.  The session behind it is gone ---
+its package versions, options, and monomial-order conventions
+unrecorded --- so the reader a decade later cannot replay it.  And no
+matter how reliable the system that produced it, the result cannot
+travel into a formal proof, because proof assistants accept nothing
+on testimony from \emph{any} software --- not from a computer algebra
+system, not from their own compilers, not from the hardware they run
+on.  That is a different standard of evidence, not a higher one, and
+it is the standard the celebrated formalizations of the four-color
+theorem~\cite{gonthier}, the Kepler conjecture~\cite{hales-flyspeck},
+and the Liquid Tensor Experiment~\cite{scholze-liquid} were built to
+meet for their computational steps.  M2Lean lets computational
+commutative algebra meet it routinely and cheaply --- without asking
+anyone to abandon their tools, and without re-litigating \M{}'s
+correctness, because what crosses the bridge is mathematical
+evidence, not an implementation.
 
 The two tools in question serve different masters.  A working
 algebraic geometer who wants to \emph{compute}---a Gr\"obner basis, a
@@ -204,16 +212,24 @@ not have found.
 
 \paragraph{The skeptic's contract.}
 M2Lean adopts the classical skeptical stance toward computer
-algebra~\cite{harrison-thery}: \M{} is treated as an untrusted oracle.
-A result is never accepted because \M{} printed \code{true}; it is
-accepted only when \M{} supplies \emph{evidence}---cofactors
-expressing an element in terms of generators, change-of-basis data,
-division quotients for S-polynomials---and a small \lean{} checker
-verifies that evidence.  For the core checkers we prove soundness
-theorems in \lean{}: if the checker accepts, a genuine \mathlib{}
-proposition holds.  A defect anywhere in \M{}, in the bridge code, or
-in the serialization can cause spurious \emph{rejection}, but never a
-false theorem.
+algebra~\cite{harrison-thery}: architecturally, \M{} plays the role
+of an \emph{untrusted oracle}.  The term is one of art, not a verdict
+on software quality.  Formal proof draws its trust boundary around a
+tiny kernel and places \emph{everything} else outside it---its own
+elaborator, its compilers, the hardware---and \M{}, whose development
+and testing practices are as rigorous as any in mathematical
+software, simply sits on the same side of that line as everything
+else in the world.  Concretely: a result is never accepted because
+\M{} printed \code{true}; it is accepted when \M{} supplies
+\emph{evidence}---cofactors expressing an element in terms of
+generators, change-of-basis data, division quotients for
+S-polynomials---and a small \lean{} checker verifies that evidence.
+For the core checkers we prove soundness theorems in \lean{}: if the
+checker accepts, a genuine \mathlib{} proposition holds.  The
+discipline spares everyone an argument: a defect anywhere in the
+bridge code, the serialization, or even \M{} itself could only cause
+spurious \emph{rejection}, never a false theorem---so the bridge
+never needs to adjudicate \M{}'s correctness at all.
 
 \paragraph{Contributions.}
 This paper describes the design and a complete working vertical slice
@@ -292,11 +308,12 @@ installation --- a referee's, a reader's, one running twenty years
 from now --- can re-check, with the coefficient field, monomial
 order, grading, and package versions pinned down machine-readably.
 You never write a line of \lean{}.  The discipline pays even before
-verification: making certificates exportable forced exact answers to
-questions the ecosystem usually leaves implicit (which GRevLex
-tie-break convention is in force; what the division algorithm
-guarantees about its quotients), and the shared adversarial fixtures
-would catch any future drift.  And the statuses are honest: a
+verification: making certificates exportable required exact answers
+to questions that need none inside a single system but must be pinned
+down for results to travel (which GRevLex tie-break convention is in
+force; what the division algorithm guarantees about its quotients),
+and the shared adversarial fixtures will catch any future drift on
+either side.  And the statuses are honest: a
 computation is reported as \emph{computed}, \checked{}, or \proved{},
 never a conflation of the three.
 \end{audiencebox}
@@ -385,21 +402,27 @@ into mathematics.
 
 Throughout the paper, code listings are color-coded by which side of
 the trust boundary owns the artifact:
-\textcolor{m2col}{\textbf{red}} for \M{} input (untrusted
-computation and evidence generation),
+\textcolor{m2col}{\textbf{red}} for \M{} (computation and evidence
+generation, outside the kernel-checked base),
 \textcolor{protocol}{\textbf{amber}} for protocol documents (the data
 crossing the boundary), and \textcolor{leancol}{\textbf{blue}} for
 \lean{} (validation, checking, and theorems).
 
 \subsection{Trusted and untrusted}
 
-The trusted base consists of the \lean{} kernel, the definitions
-giving protocol objects mathematical meaning (the sparse model and its
+``Trusted'' and ``untrusted'' name sides of an architectural
+boundary---what a false theorem could depend on versus what it
+cannot---not degrees of confidence in anyone's code.  The trusted
+base consists of the \lean{} kernel, the definitions giving protocol
+objects mathematical meaning (the sparse model and its
 interpretation), the statements of the soundness theorems, and
-\mathlib{} itself.  Explicitly untrusted: all of \M{} (engine,
-interpreter, our package), all serialization and transport, every
-field of every document including provenance, and generated \lean{}
-syntax prior to kernel checking.  Checkers may not use
+\mathlib{} itself.  Outside the boundary, by design: all of \M{}
+(engine, interpreter, our package), all serialization and transport,
+every field of every document including provenance, and generated
+\lean{} syntax prior to kernel checking.  Placing \M{} outside is
+what makes the bridge \emph{light} for \M{}: nothing about its
+internals needs to be audited, frozen, or re-implemented for the
+theorems to stand.  Checkers may not use
 \code{native\_decide}; certificate checks in theorem files run
 through the kernel (\code{decide +kernel}).
 
@@ -554,7 +577,8 @@ the element against the ideal's Gr\"obner basis, extracts cofactors,
 re-checks the identity, and serializes everything---generators,
 element, evidence, monomial order, provenance---in the canonical
 forms of \S\ref{sec:protocol}.  Because everything the package
-produces is re-verified, it may freely use \M{}'s untrusted machinery:
+produces is re-verified, it may freely use any convenient \M{}
+machinery:
 membership cofactors come from matrix division \code{f // gens I}
 against \M{}'s internal Gr\"obner engine, and basis conversion
 witnesses likewise.  The one place where honesty about \emph{how} a
@@ -775,9 +799,11 @@ requesting a membership certificate, runs \code{M2 --script} as a
 subprocess, parses the returned protocol document with the M2Lean
 parser, embeds the cofactors as literals, and closes the goal with
 \code{checkMembership\_sound} applied to a kernel-checked run of the
-certificate checker.  The trust story is unchanged: \M{}'s answer is
-data, not authority --- a wrong answer fails the kernel check and the
-tactic reports an error; it can never prove a falsehood.  The demo
+certificate checker.  The trust story is unchanged: the answer
+enters the proof as data, not authority --- if anything in the round
+trip misfires (the subprocess, the parse, the transcription), the
+kernel check fails and the tactic reports an error; it can never
+prove a falsehood.  The demo
 file above is built in continuous integration, so every CI run
 exercises a live \lean{}-to-\M{} round trip at elaboration time.
 This prototype handles ground membership goals; goal reflection for
