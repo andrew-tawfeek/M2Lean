@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/andrew-tawfeek/M2Lean/protocol/schema/m2lean-v0.schema.json",
-  "title": "M2Lean protocol document, version 0.1.0",
+  "title": "M2Lean protocol document, version 0.2.0",
   "description": "Structural pre-filter only. The normative specification is protocol/SPEC.md; passing this schema does NOT imply a document is valid (canonical forms, dependency order, dimensions, and primality are checked semantically by consumers).",
   "type": "object",
   "required": ["m2leanVersion", "documentId", "objects", "claims", "provenance"],
   "properties": {
-    "m2leanVersion": { "const": "0.1.0" },
+    "m2leanVersion": { "const": "0.2.0" },
     "documentId": { "type": "string", "minLength": 1 },
     "objects": { "type": "array", "items": { "$ref": "#/$defs/object" } },
     "claims": { "type": "array", "items": { "$ref": "#/$defs/claim" } },
@@ -97,7 +97,7 @@
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "kind": { "enum": ["PolynomialIdentity", "IdealMembership", "SpanInclusion",
-                            "GroebnerBasis", "ChainComplex", "GradedComplex"] },
+                            "GroebnerBasis", "NonMembership", "ChainComplex", "GradedComplex"] },
         "evidence": { "type": "object" }
       }
     },

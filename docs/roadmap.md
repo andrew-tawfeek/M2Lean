@@ -1,26 +1,32 @@
 # Roadmap
 
-Milestones follow README §9. Status as of July 2026.
+Milestones follow README S9. Status as of July 2026 (bridge v2).
 
 | milestone | status | notes |
 |---|---|---|
-| M0 vocabulary and design | **done** | SPEC 0.1.0, trust model, ADRs 0001–0004 |
+| M0 vocabulary and design | **done** | SPEC 0.2.0, trust model, ADRs 0001-0005 |
 | M1 transport and round-trip | **done** | M2 exporter + Lean parser share `protocol/fixtures/` |
-| M2 certified polynomial/module core | **done (partial)** | identity, membership, span-inclusion checkers with soundness theorems; GB checker at `checked` level |
-| M3 complexes and resolutions | **partial** | `ChainComplex` (proved) and `GradedComplex` (checked) claims; exactness certificates not yet designed |
-| M4 flagship mathematics | **done (first instance)** | certified Nullstellensatz-style disjointness theorem for the twisted cubic; Eagon–Northcott complex certified as graded complex with Betti data |
-| M5 ergonomic integration | **not started** | subprocess protocol, caching, editor surface |
+| M2 certified polynomial/module core | **done** | identity, membership, span-inclusion, Groebner (GRevLex), and non-membership checkers all carry soundness theorems |
+| M3 complexes and resolutions | **partial** | `ChainComplex` (proved) and `GradedComplex` (checked); exactness certificates not yet designed |
+| M4 flagship mathematics | **done** | twisted-cubic disjointness; phi8 separability (mathlib `Polynomial.Separable`); F_101 tier |
+| M5 ergonomic integration | **partial** | `verifyWithLean` in-session verification; `by macaulay2` tactic (ground membership goals); CI on every push |
 
-## Next steps (post-preprint)
+## Formalizations delivered (mathlib-upstream candidates)
 
-1. Formalize Buchberger's criterion (standard representations) to
-   promote `GroebnerBasis` from `checked` to `proved`; upstream to
-   mathlib where possible.
-2. Exactness certificates: rank + depth data (Buchsbaum–Eisenbud
-   criterion) or certified kernel computations via syzygy claims.
-3. Prime fields in the Lean semantics (`ZMod p`); the protocol and M2
-   side already support them.
-4. Compact/binary certificate encoding and streaming for large GB
-   certificates.
-5. `by macaulay2` tactic invoking M2 as a subprocess from Lean.
-6. Negative certificates (non-membership via GB normal forms).
+- `M2Lean.Groebner.buchberger_criterion` - Buchberger's criterion in
+  standard-representation form over any `MonomialOrder` and field.
+- `MonomialOrder.degRevLex` - the degree-reverse-lexicographic order
+  (WF via finiteness of bounded-degree exponent vectors).
+- The comparator-agreement and lead-bridge lemmas connecting an
+  executable sparse checker to the abstract theory.
+
+## Next steps
+
+1. Upstream the above to mathlib.
+2. Lex agreement lemmas (promotes Lex-order GB claims to proved).
+3. Graded-complex soundness (homogeneity semantics).
+4. Exactness certificates: syzygy claims or Buchsbaum-Eisenbud data.
+5. Reinstate the coprime-pair skip by formalizing Buchberger's first
+   criterion.
+6. Tactic: symbolic-goal reflection (polyrith-style normalization).
+7. Compact/binary certificate encoding and streaming.

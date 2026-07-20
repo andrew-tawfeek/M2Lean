@@ -16,14 +16,17 @@ import Mathlib.Data.List.Sort
 
 namespace M2Lean
 
-/-- A sparse term `c · x^e`. -/
-structure STerm where
-  coeff : Rat
+/-- A sparse term `c · x^e`, over a coefficient type `α` (`ℚ` for
+`RationalField` documents, `ZMod p` for `PrimeField` documents). -/
+structure STerm (α : Type*) where
+  coeff : α
   exps  : List Nat
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr
 
 /-- A sparse polynomial: a list of terms, interpreted as their sum. -/
-abbrev SPoly := List STerm
+abbrev SPoly (α : Type*) := List (STerm α)
+
+variable {α : Type*}
 
 /-- Pointwise sum of exponent vectors, padding the shorter with zeros. -/
 def zipAdd : List Nat → List Nat → List Nat
@@ -82,18 +85,27 @@ here is irrelevant for soundness, so we fix GRevLex. -/
 
 /-- The sorting relation: `s` precedes `t` when its exponent vector is
 not smaller in GRevLex. -/
-def termGE (s t : STerm) : Prop := cmpGRevLex s.exps t.exps ≠ .lt
+def termGE (s t : STerm α) : Prop := cmpGRevLex s.exps t.exps ≠ .lt
 
-instance : DecidableRel termGE := fun s t => by
+instance : DecidableRel (termGE (α := α)) := fun s t => by
   unfold termGE; infer_instance
 
-def sortTerms (p : SPoly) : SPoly := List.insertionSort termGE p
+def sortTerms (p : SPoly α) : SPoly α := List.insertionSort termGE p
+
+/-- Sorting relation for an arbitrary supported order. -/
+def termGEBy (ord : MonOrder) (s t : STerm α) : Prop := ord.cmp s.exps t.exps ≠ .lt
+
+instance {ord : MonOrder} : DecidableRel (termGEBy (α := α) ord) := fun s t => by
+  unfold termGEBy; infer_instance
+
+def sortTermsBy (ord : MonOrder) (p : SPoly α) : SPoly α :=
+  List.insertionSort (termGEBy ord) p
 
 /-- Fold step of `merge1`: prepend `t` to an already-merged tail,
 combining with the head when the exponent vectors agree and dropping
 zero coefficients.  Structural recursion only, so that certificate
 checks reduce inside the Lean kernel (`by decide`). -/
-def insertMerged (t : STerm) : SPoly → SPoly
+def insertMerged [DecidableEq α] [Zero α] [Add α] (t : STerm α) : SPoly α → SPoly α
   | [] => if t.coeff = 0 then [] else [t]
   | u :: rest =>
     if t.exps = u.exps then
@@ -105,7 +117,7 @@ def insertMerged (t : STerm) : SPoly → SPoly
 /-- Merge adjacent terms with equal exponent vectors and drop zero
 coefficients.  Assumes (for effectiveness, not soundness) that equal
 exponent vectors are adjacent, which sorting guarantees. -/
-def merge1 (p : SPoly) : SPoly := p.foldr insertMerged []
+def merge1 [DecidableEq α] [Zero α] [Add α] (p : SPoly α) : SPoly α := p.foldr insertMerged []
 
 /-- Drop trailing zero exponents, so that the same monomial written
 with different paddings (e.g. `[1]` vs `[1,0,0]`) has one canonical
@@ -117,34 +129,40 @@ def trimExps : List Nat → List Nat
     | [] => if a = 0 then [] else [a]
     | l => a :: l
 
-def canonTerm (t : STerm) : STerm := ⟨t.coeff, trimExps t.exps⟩
+def canonTerm (t : STerm α) : STerm α := ⟨t.coeff, trimExps t.exps⟩
 
 /-- Canonicalize a raw term list. -/
-def normalize (p : SPoly) : SPoly := merge1 (sortTerms (p.map canonTerm))
+def normalize [DecidableEq α] [Zero α] [Add α] (p : SPoly α) : SPoly α := merge1 (sortTerms (p.map canonTerm))
+
+/-- Canonicalize with the given order's comparator, so the head of the
+result is the leading term with respect to that order (used by the
+Gröbner checkers; `normalize` itself uses a fixed comparator). -/
+def normalizeBy [DecidableEq α] [Zero α] [Add α] (ord : MonOrder) (p : SPoly α) : SPoly α :=
+  merge1 (sortTermsBy ord (p.map canonTerm))
 
 /-! ## Ring operations on raw term lists -/
 
 /-- Product of two terms. -/
-def mulTerm (s t : STerm) : STerm :=
+def mulTerm [Mul α] (s t : STerm α) : STerm α :=
   { coeff := s.coeff * t.coeff, exps := zipAdd s.exps t.exps }
 
 /-- Raw sum: concatenation. -/
-def addRaw (p q : SPoly) : SPoly := p ++ q
+def addRaw (p q : SPoly α) : SPoly α := p ++ q
 
 /-- Raw product: all pairwise term products. -/
-def mulRaw (p q : SPoly) : SPoly := p.flatMap fun s => q.map (mulTerm s)
+def mulRaw [Mul α] (p q : SPoly α) : SPoly α := p.flatMap fun s => q.map (mulTerm s)
 
 /-- `combo cs gs` is the raw linear combination `Σᵢ csᵢ · gsᵢ`
 (truncating at the shorter list). -/
-def combo (cs gs : List SPoly) : SPoly :=
+def combo [Mul α] (cs gs : List (SPoly α)) : SPoly α :=
   (List.zipWith mulRaw cs gs).foldr addRaw []
 
 /-- Decidable semantic equality of raw term lists (via normalization).
 Sound by `Interp.polyEq_sound`; used by every checker. -/
-def polyEq (p q : SPoly) : Bool := decide (normalize p = normalize q)
+def polyEq [DecidableEq α] [Zero α] [Add α] (p q : SPoly α) : Bool := decide (normalize p = normalize q)
 
 /-- Is `p` semantically zero? -/
-def polyIsZero (p : SPoly) : Bool := decide (normalize p = [])
+def polyIsZero [DecidableEq α] [Zero α] [Add α] (p : SPoly α) : Bool := decide (normalize p = [])
 
 /-! ## Canonical-form validation (SPEC §3.4)
 
@@ -153,40 +171,41 @@ soundness (a non-canonical but honest certificate would still verify);
 they exist so that both implementations agree byte-for-byte on
 canonical documents and so malformed input is rejected loudly. -/
 
-def isCanonical (ord : MonOrder) (arity : Nat) (p : SPoly) : Bool :=
+def isCanonical [DecidableEq α] [Zero α] (ord : MonOrder) (arity : Nat) (p : SPoly α) : Bool :=
   p.all (fun t => t.coeff ≠ 0 && t.exps.length = arity) &&
   (p.zip (p.drop 1)).all (fun (s, t) => ord.cmp s.exps t.exps = .gt)
 
 /-- A raw polynomial (allowed only in `PolynomialIdentity`): arity must
 still be respected. -/
-def isRaw (arity : Nat) (p : SPoly) : Bool :=
+def isRaw (arity : Nat) (p : SPoly α) : Bool :=
   p.all (fun t => t.exps.length = arity)
 
 /-! ## Sparse matrices -/
 
 /-- A sparse matrix: rows of raw polynomials. -/
-abbrev SMatrix := List (List SPoly)
+abbrev SMatrix (α : Type*) := List (List (SPoly α))
 
-def SMatrix.row (M : SMatrix) (i : Nat) : List SPoly := M.getD i []
+def SMatrix.row (M : SMatrix α) (i : Nat) : List (SPoly α) := M.getD i []
 
-def SMatrix.col (M : SMatrix) (j : Nat) : List SPoly :=
+def SMatrix.col (M : SMatrix α) (j : Nat) : List (SPoly α) :=
   M.map fun r => r.getD j []
 
 /-- Entry `(i, j)` of the matrix product `A * B` as a raw polynomial:
 `Σₖ A i k · B k j`. -/
-def mulEntry (A B : SMatrix) (i j : Nat) : SPoly :=
+def mulEntry [Mul α] (A B : SMatrix α) (i j : Nat) : SPoly α :=
   combo (A.row i) (B.col j)
 
 /-- All entries of `A * B` normalize to zero.  `r`, `m`, `c` are the
 declared dimensions (`A : r × m`, `B : m × c`). -/
-def checkComposeZero (r c : Nat) (A B : SMatrix) : Bool :=
+def checkComposeZero [DecidableEq α] [Zero α] [Add α] [Mul α]
+    (r c : Nat) (A B : SMatrix α) : Bool :=
   (List.range r).all fun i => (List.range c).all fun j =>
     polyIsZero (mulEntry A B i j)
 
 /-! ## Homogeneity (for `GradedComplex`) -/
 
 /-- Every term of `p` has total degree `d`. -/
-def isHomogeneousOfDeg (p : SPoly) (d : Int) : Bool :=
+def isHomogeneousOfDeg (p : SPoly α) (d : Int) : Bool :=
   p.all fun t => (totalDeg t.exps : Int) = d
 
 end M2Lean

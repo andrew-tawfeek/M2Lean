@@ -6,3 +6,11 @@ import M2Lean.Protocol.Ast
 import M2Lean.Verify
 import M2Lean.Examples.FlagshipData
 import M2Lean.Examples.Flagship
+import M2Lean.Groebner.Criterion
+import M2Lean.Groebner.DegRevLex
+import M2Lean.Examples.GaloisData
+import M2Lean.Examples.Galois
+import M2Lean.Groebner.Bridge
+import M2Lean.Groebner.Sound
+import M2Lean.Tactic.Macaulay2
+import M2Lean.Examples.TacticDemo

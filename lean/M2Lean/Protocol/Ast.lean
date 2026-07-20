@@ -22,17 +22,19 @@ inductive Entry where
   | ratField
   | primeField (p : Nat)
   | polyRing (coeff : String) (vars : List String) (ord : MonOrder)
-  | ideal (ring : String) (gens : List SPoly)
-  | matrix (ring : String) (rows cols : Nat) (entries : SMatrix)
+  | ideal (ring : String) (gens : List (SPoly Rat))
+  | matrix (ring : String) (rows cols : Nat) (entries : SMatrix Rat)
   | freeModule (ring : String) (degs : List Int)
   deriving Repr, Inhabited
 
 inductive ClaimData where
-  | polyIdentity (ring : String) (lhs rhs : SPoly)
-  | membership (ideal : String) (element : SPoly) (cofactors : List SPoly)
-  | spanInclusion (src tgt : String) (rows : List (List SPoly))
-  | groebner (ideal : String) (basis : List SPoly)
-      (basisCof genCof : List (List SPoly)) (sps : List SPairCert)
+  | polyIdentity (ring : String) (lhs rhs : SPoly Rat)
+  | membership (ideal : String) (element : SPoly Rat) (cofactors : List (SPoly Rat))
+  | spanInclusion (src tgt : String) (rows : List (List (SPoly Rat)))
+  | groebner (ideal : String) (basis : List (SPoly Rat))
+      (basisCof genCof : List (List (SPoly Rat))) (sps : List (SPairCert Rat))
+  | nonMembership (ideal : String) (gbClaim : String) (element : SPoly Rat)
+      (quotients : List (SPoly Rat)) (remainder : SPoly Rat)
   | chainComplex (ring : String) (diffs : List String)
   | gradedComplex (ring : String) (modules : List String) (diffs : List String)
   deriving Repr, Inhabited
@@ -85,8 +87,13 @@ def parseCanonicalInt (s : String) (path : String) : P Int := do
   let n := body.foldl (fun a c => a * 10 + (c.toNat - '0'.toNat)) 0
   return if s.startsWith "-" then -(n : Int) else (n : Int)
 
-/-- Canonical rationals: positive denominator, reduced. -/
+/-- Canonical rationals: positive denominator, reduced.  A bare
+decimal string is accepted as an integer (this is the required
+encoding for prime-field residues, SPEC §2). -/
 def parseRat (j : Json) (path : String) : P Rat := do
+  if let .ok s := j.getStr? then
+    let k ← parseCanonicalInt s path
+    return (k : Rat)
   let num ← parseCanonicalInt (← getStr j "num" path) s!"{path}.num"
   let den ← parseCanonicalInt (← getStr j "den" path) s!"{path}.den"
   if den ≤ 0 then throw s!"{path}: denominator must be positive"
@@ -96,17 +103,17 @@ def parseRat (j : Json) (path : String) : P Rat := do
     throw s!"{path}: {num}/{den} is not reduced"
   return q
 
-def parseTerm (j : Json) (path : String) : P STerm := do
+def parseTerm (j : Json) (path : String) : P (STerm Rat) := do
   let c ← parseRat (← getObj j "coefficient" path) s!"{path}.coefficient"
   let exps ← (← getArr j "exponents" path).toList.mapIdxM fun i e =>
     e.getNat?.mapError (s!"{path}.exponents[{i}]: {·}")
   return ⟨c, exps⟩
 
-def parsePoly (j : Json) (path : String) : P SPoly := do
+def parsePoly (j : Json) (path : String) : P (SPoly Rat) := do
   (← getArr j "terms" path).toList.mapIdxM fun i t =>
     parseTerm t s!"{path}.terms[{i}]"
 
-def parsePolyArr (j : Json) (k : String) (path : String) : P (List SPoly) := do
+def parsePolyArr (j : Json) (k : String) (path : String) : P (List (SPoly Rat)) := do
   (← getArr j k path).toList.mapIdxM fun i p => parsePoly p s!"{path}.{k}[{i}]"
 
 def parseOrder (j : Json) (path : String) : P MonOrder := do
@@ -171,12 +178,12 @@ def parseEntry (j : Json) (path : String) (lookup : String → Option Entry) :
 
 /-! ## Claim parsing -/
 
-def parseSPair (j : Json) (path : String) : P SPairCert := do
+def parseSPair (j : Json) (path : String) : P (SPairCert Rat) := do
   return { i := ← getNatField j "i" path,
            j := ← getNatField j "j" path,
            quotients := ← parsePolyArr j "quotients" path }
 
-def parseCofRows (j : Json) (k : String) (path : String) : P (List (List SPoly)) := do
+def parseCofRows (j : Json) (k : String) (path : String) : P (List (List (SPoly Rat))) := do
   (← getArr j k path).toList.mapIdxM fun i r => do
     (← r.getArr?.mapError (s!"{path}.{k}[{i}]: {·}")).toList.mapIdxM
       fun l p => parsePoly p s!"{path}.{k}[{i}][{l}]"
@@ -209,6 +216,12 @@ def parseClaim (j : Json) (path : String) : P PClaim := do
       (← parseCofRows ev "basisCofactors" s!"{path}.evidence")
       (← parseCofRows ev "generatorCofactors" s!"{path}.evidence")
       sps
+  | "NonMembership" => do
+    pure <| ClaimData.nonMembership (← getStr j "ideal" path)
+      (← getStr j "groebnerClaim" path)
+      (← parsePoly (← getObj j "element" path) s!"{path}.element")
+      (← parsePolyArr ev "quotients" s!"{path}.evidence")
+      (← parsePoly (← getObj ev "remainder" path) s!"{path}.evidence.remainder")
   | "ChainComplex" => do
     pure <| ClaimData.chainComplex (← getStr j "ring" path)
       (← parseIdList j "differentials" path)
@@ -226,7 +239,7 @@ def parseDocument (s : String) : P Document := do
     | .ok j => pure j
     | .error e => throw s!"parse: {e}"
   let ver ← getStr j "m2leanVersion" "document"
-  if ver ≠ "0.1.0" then throw s!"document.m2leanVersion: unsupported version '{ver}'"
+  if ver ≠ "0.2.0" then throw s!"document.m2leanVersion: unsupported version '{ver}'"
   let docId ← getStr j "documentId" "document"
   let objJs ← getArr j "objects" "document"
   let mut objs : List (String × Entry) := []
@@ -252,7 +265,7 @@ def Document.ringInfo? (d : Document) (id : String) : Option (Nat × MonOrder ×
 /-- Structural validation beyond parsing: canonical forms, arities,
 graded data (SPEC §3.4).  Returns an error message or `.ok`. -/
 def validateDocument (d : Document) : P Unit := do
-  let checkCanon := fun (rid : String) (what : String) (ps : List SPoly) => do
+  let checkCanon := fun (rid : String) (what : String) (ps : List (SPoly Rat)) => do
     match d.ringInfo? rid with
     | none => throw s!"{what}: '{rid}' is not a PolynomialRing"
     | some (arity, ord, coeff) => do
@@ -285,6 +298,11 @@ def validateDocument (d : Document) : P Unit := do
         if r1 ≠ r2 then throw s!"claim '{c.id}': ideals live in different rings"
         checkCanon r1 s!"claim '{c.id}'" rows.flatten
       | _, _ => throw s!"claim '{c.id}': source/target must be Ideals"
+    | .nonMembership iid _gb el quots rem =>
+      match d.find? iid with
+      | some (.ideal rid _) =>
+        checkCanon rid s!"claim '{c.id}'" ([el, rem] ++ quots)
+      | _ => throw s!"claim '{c.id}': '{iid}' is not an Ideal"
     | .groebner iid basis bc gc sps =>
       match d.find? iid with
       | some (.ideal rid _) => do

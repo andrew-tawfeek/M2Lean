@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  bridge:
+    name: build, verify, audit
+    runs-on: ubuntu-latest
+    container: debian:trixie
+    steps:
+      - name: Install system packages
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            macaulay2 curl git rsync python3 ca-certificates
+          M2 --version
+
+      - uses: actions/checkout@v4
+
+      - name: Install elan
+        run: |
+          curl -sSf https://elan.lean-lang.org/elan-init.sh | \
+            sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Cache Lean toolchain and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.elan/toolchains
+            ~/m2lean-lean/.lake
+          key: lean-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}
+          restore-keys: lean-
+
+      - name: Build Lean library (with mathlib cache)
+        run: bash scripts/lean-build.sh
+        env:
+          CI: "true"
+
+      - name: Build m2lean-check
+        run: bash scripts/lean-build.sh m2lean-check
+        env:
+          CI: "true"
+
+      - name: End-to-end checks (M2 regeneration + verification + adversarial fixtures)
+        run: bash scripts/run-checks.sh
+
+      - name: Axiom audit
+        run: bash scripts/audit.sh

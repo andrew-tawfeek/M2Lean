@@ -11,7 +11,7 @@
 
 newPackage(
     "M2Lean",
-    Version => "0.1.0",
+    Version => "0.2.0",
     Date => "July 20, 2026",
     Authors => {{Name => "Andrew Tawfeek"}},
     Headline => "export certificates for verification in Lean 4",
@@ -23,10 +23,12 @@ export {
     "exportGradedFreeModule",
     "polynomialIdentityClaim", "membershipClaim", "unitIdealClaim",
     "spanInclusionClaim", "gbClaim", "chainComplexClaim",
-    "gradedComplexClaim",
+    "gradedComplexClaim", "nonMembershipClaim",
     "writeM2LeanDocument", "divisionAlgorithm",
-    "jsonOfPolynomial"
+    "jsonOfPolynomial", "verifyWithLean"
     }
+
+needsPackage "JSON"
 
 ----------------------------------------------------------------------
 -- minimal deterministic JSON emitter
@@ -263,7 +265,6 @@ gbClaim (M2LeanDocument, String, Ideal) := (D, cid, I) -> (
     sPairs := flatten for i from 0 to #B-1 list for j from i+1 to #B-1 list (
         ei := first exponents leadMonomial B#i;
         ej := first exponents leadMonomial B#j;
-        if all(n, k -> min(ei#k, ej#k) == 0) then continue;  -- coprime: omit
         em := for k from 0 to n-1 list max(ei#k, ej#k);
         m := product(n, k -> R_k^(em#k));
         S := (m // leadTerm B#i) * B#i - (m // leadTerm B#j) * B#j;
@@ -281,6 +282,27 @@ gbClaim (M2LeanDocument, String, Ideal) := (D, cid, I) -> (
             ("generatorCofactors", jarr for row in generatorCofactors list
                 jarr (jsonOfPolynomial \ row)),
             ("sPairs", jarr sPairs)})}))
+
+-- negative certificate: f is NOT in I, witnessed by division against a
+-- Groebner basis leaving a nonzero reduced remainder.  The claim
+-- references a GroebnerBasis claim (same document) for the basis; its
+-- soundness in Lean rests on the Buchberger soundness theorem.
+nonMembershipClaim = method(Options => {"groebnerClaim" => "gb1"})
+nonMembershipClaim (M2LeanDocument, String, RingElement, Ideal) := o -> (D, cid, f, I) -> (
+    gbId := o#"groebnerClaim";
+    if f % I == 0 then error "M2Lean: element IS in the ideal (no non-membership certificate exists)";
+    iid := exportIdeal(D, I);
+    B := first entries gens gb I;
+    (q, r) := divisionAlgorithm(f, B);
+    if r == 0 then error "M2Lean: internal error, remainder vanished";
+    addClaim(D, jobj {
+        ("id", jstr cid), ("kind", jstr "NonMembership"),
+        ("ideal", jstr iid),
+        ("groebnerClaim", jstr gbId),
+        ("element", jsonOfPolynomial f),
+        ("evidence", jobj {
+            ("quotients", jarr (jsonOfPolynomial \ q)),
+            ("remainder", jsonOfPolynomial r)})}))
 
 chainComplexClaim = method()
 chainComplexClaim (M2LeanDocument, String, List) := (D, cid, mats) -> (
@@ -321,20 +343,69 @@ gradedComplexClaim (M2LeanDocument, String, List) := (D, cid, mats) -> (
 writeM2LeanDocument = method(Options => {"algorithm" => "gb (engine default)"})
 writeM2LeanDocument (M2LeanDocument, String) := o -> (D, filename) -> (
     doc := jobj {
-        ("m2leanVersion", jstr "0.1.0"),
+        ("m2leanVersion", jstr "0.2.0"),
         ("documentId", jstr D#"docId"),
         ("objects", jarr D#"objects"),
         ("claims", jarr D#"claims"),
         ("provenance", jobj {
             ("producer", jstr "Macaulay2"),
             ("producerVersion", jstr toString version#"VERSION"),
-            ("packageVersion", jstr "0.1.0"),
+            ("packageVersion", jstr "0.2.0"),
             ("algorithm", jstr o#"algorithm"),
             ("options", jobj {}),
             ("deterministic", "true")})};
     fh := openOut filename;
     fh << doc << endl << close;
     filename)
+
+----------------------------------------------------------------------
+-- in-session verification: spawn m2lean-check and display the report
+----------------------------------------------------------------------
+
+esc := ascii 27
+ansi := (code, s) -> esc | "[" | code | "m" | s | esc | "[0m"
+green := s -> ansi("32", s)
+red' := s -> ansi("31", s)
+amber := s -> ansi("33", s)
+gray := s -> ansi("90", s)
+
+findChecker = () -> (
+    e := getenv "M2LEAN_CHECK";
+    if e != "" then return e;
+    if 0 == run "command -v m2lean-check > /dev/null 2>&1" then return "m2lean-check";
+    fallback := getenv "HOME" | "/m2lean-lean/.lake/build/bin/m2lean-check";
+    if fileExists fallback then return fallback;
+    error "M2Lean: cannot find m2lean-check; set the M2LEAN_CHECK environment variable")
+
+-- verifyWithLean D: write the document, run the Lean verifier, display
+-- per-claim verdicts with their assurance levels, and return the
+-- parsed report (a hash table) for programmatic use.
+verifyWithLean = method()
+verifyWithLean M2LeanDocument := D -> (
+    checker := findChecker();
+    tmp := temporaryFileName() | ".m2lean.json";
+    writeM2LeanDocument(D, tmp);
+    rep := tmp | ".report.json";
+    status := run(checker | " " | format tmp | " -o " | format rep | " 2> " | format(tmp | ".err"));
+    if status >= 256 then status = status // 256;
+    if not fileExists rep then (
+        errmsg := if fileExists(tmp | ".err") then get(tmp | ".err") else "";
+        << red' "document rejected before verification" << " (exit " << status << ")" << endl;
+        if #errmsg > 0 then << gray errmsg;
+        return null);
+    R := fromJSON get rep;
+    << "m2lean-check report for document " << gray D#"docId" << ":" << endl;
+    for r in R#"results" do (
+        ok := r#"status" == "accepted";
+        lvl := r#"assurance";
+        << "  " << r#"claim" << ": "
+          << (if ok then green "accepted" else red' "REJECTED")
+          << " [" << (if lvl == "proved" then green lvl
+                      else if lvl == "checked" then amber lvl
+                      else gray lvl) << "]"
+          << (if r#"message" != "" then "  " | gray r#"message" else "")
+          << endl);
+    R)
 
 beginDocumentation()
 doc ///

@@ -1,5 +1,5 @@
 {
-  "m2leanVersion": "0.1.0",
+  "m2leanVersion": "0.2.0",
   "documentId": "fixture-membership",
   "objects": [
     { "id": "QQ", "kind": "RationalField" },
@@ -26,5 +26,5 @@
     }
   ],
   "provenance": { "producer": "handwritten", "producerVersion": "n/a",
-    "packageVersion": "0.1.0", "deterministic": true }
+    "packageVersion": "0.2.0", "deterministic": true }
 }

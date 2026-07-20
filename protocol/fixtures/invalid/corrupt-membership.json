@@ -1,5 +1,5 @@
 {
-  "m2leanVersion": "0.1.0",
+  "m2leanVersion": "0.2.0",
   "documentId": "fixture-corrupt-membership",
   "_expectRejection": "verification: cofactors give (x+y) + 2(x-y) = 3x - y, which is not the claimed element 2x",
   "objects": [
@@ -27,5 +27,5 @@
     }
   ],
   "provenance": { "producer": "handwritten", "producerVersion": "n/a",
-    "packageVersion": "0.1.0", "deterministic": true }
+    "packageVersion": "0.2.0", "deterministic": true }
 }

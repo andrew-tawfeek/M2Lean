@@ -1,6 +1,6 @@
 {
  "m2leanVersion": "0.2.0",
- "documentId": "fixture-corrupt-gb-quotient",
+ "documentId": "fixture-corrupt-nonmembership",
  "objects": [
   {
    "id": "k1",
@@ -751,7 +751,7 @@
         "terms": [
          {
           "coefficient": {
-           "num": "-2",
+           "num": "-1",
            "den": "1"
           },
           "exponents": [
@@ -836,6 +836,44 @@
      }
     ]
    }
+  },
+  {
+   "id": "nm1",
+   "kind": "NonMembership",
+   "ideal": "I4",
+   "groebnerClaim": "gb1",
+   "element": {
+    "terms": [
+     {
+      "coefficient": {
+       "num": "1",
+       "den": "1"
+      },
+      "exponents": [
+       1,
+       0,
+       0,
+       0
+      ]
+     }
+    ]
+   },
+   "evidence": {
+    "quotients": [
+     {
+      "terms": []
+     },
+     {
+      "terms": []
+     },
+     {
+      "terms": []
+     }
+    ],
+    "remainder": {
+     "terms": []
+    }
+   }
   }
  ],
  "provenance": {
@@ -846,5 +884,5 @@
   "options": {},
   "deterministic": true
  },
- "_expectRejection": "verification: an S-pair quotient coefficient was altered (doubled), so the standard representation identity fails"
+ "_expectRejection": "verification: remainder was zeroed out, so the non-membership evidence is vacuous"
 }

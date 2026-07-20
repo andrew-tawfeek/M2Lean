@@ -25,6 +25,9 @@ assert(U == 1);  -- discovery step: M2 sees the intersection is empty
 D = newM2LeanDocument "flagship";
 unitIdealClaim(D, "unit1", U);
 gbClaim(D, "gb1", I);
+-- negative certificate: the linear form x does not vanish on the cone,
+-- i.e. x is not in I (normal form against the certified basis)
+nonMembershipClaim(D, "nm1", x, I, "groebnerClaim" => "gb1");
 C = res comodule I;
 gradedComplexClaim(D, "res1", {C.dd_1, C.dd_2});
 chainComplexClaim(D, "cx1", {C.dd_1, C.dd_2});
