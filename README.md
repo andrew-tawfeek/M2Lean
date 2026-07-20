@@ -1,3 +1,17 @@
+# M2Lean
+
+> **Status (July 2026).** The Bridge Core described below is
+> implemented and tested: see `protocol/` (interchange format 0.1.0),
+> `m2/` (Macaulay2 exporter and certificate generator), `lean/`
+> (Lean 4 semantics, checkers, soundness theorems, `m2lean-check`
+> CLI), `examples/` (end-to-end workflows including the flagship
+> twisted-cubic theorem), and `paper/` (the preprint *M2Lean: A
+> Certificate-Based Bridge Between Macaulay2 and Lean 4*).
+> Reproduce everything with `scripts/lean-build.sh`,
+> `scripts/run-checks.sh`, and `scripts/audit.sh` (WSL/Linux with
+> Macaulay2 and elan).  Design documents live in `docs/`.
+> The remainder of this file is the founding vision document.
+
 # Founding exchange
 
 ## Request
