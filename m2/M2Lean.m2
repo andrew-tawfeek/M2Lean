@@ -11,7 +11,7 @@
 
 newPackage(
     "M2Lean",
-    Version => "0.1.0",
+    Version => "0.2.0",
     Date => "July 20, 2026",
     Authors => {{Name => "Andrew Tawfeek"}},
     Headline => "export certificates for verification in Lean 4",
@@ -265,7 +265,6 @@ gbClaim (M2LeanDocument, String, Ideal) := (D, cid, I) -> (
     sPairs := flatten for i from 0 to #B-1 list for j from i+1 to #B-1 list (
         ei := first exponents leadMonomial B#i;
         ej := first exponents leadMonomial B#j;
-        if all(n, k -> min(ei#k, ej#k) == 0) then continue;  -- coprime: omit
         em := for k from 0 to n-1 list max(ei#k, ej#k);
         m := product(n, k -> R_k^(em#k));
         S := (m // leadTerm B#i) * B#i - (m // leadTerm B#j) * B#j;
@@ -344,14 +343,14 @@ gradedComplexClaim (M2LeanDocument, String, List) := (D, cid, mats) -> (
 writeM2LeanDocument = method(Options => {"algorithm" => "gb (engine default)"})
 writeM2LeanDocument (M2LeanDocument, String) := o -> (D, filename) -> (
     doc := jobj {
-        ("m2leanVersion", jstr "0.1.0"),
+        ("m2leanVersion", jstr "0.2.0"),
         ("documentId", jstr D#"docId"),
         ("objects", jarr D#"objects"),
         ("claims", jarr D#"claims"),
         ("provenance", jobj {
             ("producer", jstr "Macaulay2"),
             ("producerVersion", jstr toString version#"VERSION"),
-            ("packageVersion", jstr "0.1.0"),
+            ("packageVersion", jstr "0.2.0"),
             ("algorithm", jstr o#"algorithm"),
             ("options", jobj {}),
             ("deterministic", "true")})};

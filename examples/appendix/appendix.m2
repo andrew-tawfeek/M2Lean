@@ -75,4 +75,18 @@ chainComplexClaim(D, "koszulcx", {C.dd_1, C.dd_2});
 writeM2LeanDocument(D, "examples/appendix/stanley-reisner.json");
 << "wrote stanley-reisner.json" << endl;
 << "betti: " << toString betti C << endl;
+
+----------------------------------------------------------------------
+-- B.6  Finite fields: the same machinery over F_101.  A Groebner
+--      certificate, a membership, and a negative certificate
+--      (x is not in the ideal) -- checked in Lean over ZMod 101.
+----------------------------------------------------------------------
+F = ZZ/101[x,y];
+Ip = ideal(x^2 + y^2, x*y - 1);
+D = newM2LeanDocument "appendix-primefield";
+gbClaim(D, "gbp", Ip);
+membershipClaim(D, "memp", x^3 + x*y^2, Ip);
+nonMembershipClaim(D, "nmp", x, Ip, "groebnerClaim" => "gbp");
+writeM2LeanDocument(D, "examples/appendix/primefield.json");
+<< "wrote primefield.json" << endl;
 << "ALL APPENDIX EXAMPLES WRITTEN" << endl;

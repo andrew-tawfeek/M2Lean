@@ -1,5 +1,5 @@
 {
-  "m2leanVersion": "0.1.0",
+  "m2leanVersion": "0.2.0",
   "documentId": "fixture-noncanonical",
   "_expectRejection": "structural: ideal generator has terms not strictly decreasing in GRevLex (y listed before x)",
   "objects": [
@@ -14,5 +14,5 @@
   ],
   "claims": [],
   "provenance": { "producer": "handwritten", "producerVersion": "n/a",
-    "packageVersion": "0.1.0", "deterministic": true }
+    "packageVersion": "0.2.0", "deterministic": true }
 }

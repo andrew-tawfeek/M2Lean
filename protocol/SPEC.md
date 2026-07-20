@@ -1,4 +1,4 @@
-# M2Lean Protocol, version 0.1.0
+# M2Lean Protocol, version 0.2.0
 
 This document is the normative specification of the M2Lean interchange
 protocol, version 0. The protocol describes mathematical objects and
@@ -22,7 +22,7 @@ object with fields:
 
 | field           | type   | required | meaning                                    |
 |-----------------|--------|----------|--------------------------------------------|
-| `m2leanVersion` | string | yes      | protocol version; this spec defines `"0.1.0"` |
+| `m2leanVersion` | string | yes      | protocol version; this spec defines `"0.2.0"` |
 | `documentId`    | string | yes      | producer-chosen identifier                  |
 | `objects`       | array  | yes      | mathematical objects, in dependency order   |
 | `claims`        | array  | yes      | claims with evidence (may be empty)         |
@@ -262,9 +262,8 @@ Evidence has three parts:
    (so span(basis) ⊆ I);
 2. `generatorCofactors[i]` expresses generator `g_i` in the basis
    (so I ⊆ span(basis));
-3. for every unordered pair `i < j` of basis elements whose leading
-   monomials are not coprime, a *standard representation* of the
-   S-polynomial: quotients `q_1, …, q_r` such that
+3. for **every** unordered pair `i < j` of basis elements, a
+   *standard representation* of the S-polynomial: quotients `q_1, …, q_r` such that
    `S(b_i, b_j) = Σ_k q_k b_k` and, for every `k` with `q_k ≠ 0`,
    `lm(q_k b_k) ≤ lm(S(b_i, b_j))` in the ring's order.
 
@@ -272,13 +271,37 @@ The checker verifies 1–3 literally (including the leading-monomial
 side conditions and that every required pair is present). By
 Buchberger's criterion in standard-representation form
 [Becker–Weispfenning, Thm. 5.64; Cox–Little–O'Shea, Ch. 2 §9 Thm. 3],
-acceptance implies the proposition. Pairs with coprime leading
-monomials MAY be omitted (Buchberger's first criterion). In Macaulay2
+acceptance implies the proposition. Since version 0.2.0 every pair
+MUST be present, including coprime-leading-monomial pairs: this keeps
+the soundness proof of the checker within the standard-representation
+criterion alone, without formalizing Buchberger's first criterion
+(ADR 0005). In Macaulay2
 the quotients are produced by dividing the S-polynomial by the basis
 (`quotientRemainder`), and the change matrices by `forceGB` /
 `getChangeMatrix`.
 
-### 4.5 `ChainComplex`
+### 4.5 `NonMembership`
+
+Proposition: `element ∉ I` for the referenced ideal.
+
+```json
+{ "id": "c7", "kind": "NonMembership", "ideal": "I",
+  "groebnerClaim": "c4",
+  "element": poly,
+  "evidence": { "quotients": [poly, ...], "remainder": poly } }
+```
+
+`groebnerClaim` names a `GroebnerBasis` claim *in the same document*
+whose basis `b_1, ..., b_r` is used as the divisor family.  Evidence:
+division data `element = Σ_k q_k b_k + r` with `r ≠ 0` and no term of
+`r` divisible by the leading monomial of any `b_k`.  The checker
+verifies the identity, the nonvanishing, the reducedness, and re-runs
+the referenced Gröbner check.  Soundness: if the basis is a Gröbner
+basis, a member's fully reduced normal form is `0`, so a nonzero
+reduced remainder refutes membership.  This claim kind inherits the
+assurance level of the Gröbner checker.
+
+### 4.6 `ChainComplex`
 
 Proposition: the referenced matrices form a complex, i.e. consecutive
 composites vanish.
@@ -293,7 +316,7 @@ composites vanish.
 `d_i · d_{i+1}` normalizes to zero. Note the deliberately modest
 proposition: this certifies *a complex*, not exactness (README §5.5).
 
-### 4.6 `GradedComplex`
+### 4.7 `GradedComplex`
 
 Proposition: the referenced complex is a complex of *graded* free
 modules with the stated twists, i.e. each differential is homogeneous
@@ -316,7 +339,7 @@ The verifier (Lean) answers with a report document:
 
 ```json
 {
-  "m2leanVersion": "0.1.0",
+  "m2leanVersion": "0.2.0",
   "documentId": "...",
   "reportFor": "<documentId of the input>",
   "results": [
@@ -349,9 +372,11 @@ conflated (project principle 2.3):
 
 In the current implementation, `PolynomialIdentity`, `IdealMembership`,
 `SpanInclusion`, and `ChainComplex` report `proved`;
-`GroebnerBasis` and `GradedComplex` report `checked` (their checkers
-are executable and complete, but the Buchberger-criterion and
-graded-semantics soundness theorems are not yet formalized).
+`GradedComplex` reports `checked`.  `GroebnerBasis` and
+`NonMembership` report the level exported by the Lean library
+(`GroebnerSound.level`), which documents whether the Buchberger
+soundness theorem is available.  Claims are checked in the declared
+coefficient field: `ℚ` or, for `PrimeField p` rings, `ZMod p`.
 
 ## 7. Provenance
 

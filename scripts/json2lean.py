@@ -73,19 +73,19 @@ open M2Lean
 /-- Generators of I(C) + I(L): the three 2x2 minors cutting out the
 twisted cubic cone, followed by the ideal of the line
 {{(t,1,0,0)}} = V(y-1, z, w).  Variables x,y,z,w are positions 0-3. -/
-def gens : List SPoly := [
+def gens : List (SPoly Rat) := [
 {polylist(gens)}]
 
 /-- Macaulay2's cofactors c_i with 1 = sum c_i * gens_i. -/
-def cofactors : List SPoly := [
+def cofactors : List (SPoly Rat) := [
 {polylist(cofs)}]
 
 /-- First differential of the minimal free resolution of R/I(C)
 (the {d1["rows"]}x{d1["cols"]} matrix of minors). -/
-def resD1 : SMatrix := {matrix(d1)}
+def resD1 : SMatrix Rat := {matrix(d1)}
 
 /-- Second differential (the {d2["rows"]}x{d2["cols"]} Eagon-Northcott matrix). -/
-def resD2 : SMatrix := {matrix(d2)}
+def resD2 : SMatrix Rat := {matrix(d2)}
 
 end M2Lean.Flagship
 """

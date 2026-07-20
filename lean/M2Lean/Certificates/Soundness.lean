@@ -18,11 +18,12 @@ open MvPolynomial
 
 noncomputable section
 
+variable {α : Type*} [Field α] [DecidableEq α]
 variable (n : Nat)
 
 /-! ### Polynomial identity -/
 
-theorem checkIdentity_sound {lhs rhs : SPoly}
+theorem checkIdentity_sound {lhs rhs : SPoly α}
     (h : checkIdentity lhs rhs = true) :
     toMv n lhs = toMv n rhs :=
   polyEq_sound n h
@@ -30,10 +31,10 @@ theorem checkIdentity_sound {lhs rhs : SPoly}
 /-! ### Ideal membership -/
 
 /-- The span of the interpreted generators. -/
-def spanOf (gs : List SPoly) : Ideal (MvPolynomial (Fin n) ℚ) :=
+def spanOf (gs : List (SPoly α)) : Ideal (MvPolynomial (Fin n) α) :=
   Ideal.span {p | p ∈ gs.map (toMv n)}
 
-theorem checkMembership_sound {f : SPoly} {gs cs : List SPoly}
+theorem checkMembership_sound {f : SPoly α} {gs cs : List (SPoly α)}
     (h : checkMembership f gs cs = true) :
     toMv n f ∈ spanOf n gs := by
   have h2 : polyEq f (combo cs gs) = true :=
@@ -44,7 +45,7 @@ theorem checkMembership_sound {f : SPoly} {gs cs : List SPoly}
 /-! ### Span inclusion -/
 
 theorem checkSpanInclusion_sound :
-    ∀ {src tgt : List SPoly} {rows : List (List SPoly)},
+    ∀ {src tgt : List (SPoly α)} {rows : List (List (SPoly α))},
     checkSpanInclusion src tgt rows = true →
     spanOf n src ≤ spanOf n tgt := by
   intro src
@@ -69,8 +70,8 @@ theorem checkSpanInclusion_sound :
       · exact Ideal.span_le.mp (ih h.2) hx
 
 /-- Two accepted inclusions certify equality of spans. -/
-theorem span_eq_of_inclusions {src tgt : List SPoly}
-    {rows₁ rows₂ : List (List SPoly)}
+theorem span_eq_of_inclusions {src tgt : List (SPoly α)}
+    {rows₁ rows₂ : List (List (SPoly α))}
     (h₁ : checkSpanInclusion src tgt rows₁ = true)
     (h₂ : checkSpanInclusion tgt src rows₂ = true) :
     spanOf n src = spanOf n tgt :=
@@ -79,16 +80,16 @@ theorem span_eq_of_inclusions {src tgt : List SPoly}
 /-! ### Unit ideal and the geometric corollary -/
 
 /-- The constant polynomial 1 in the sparse model. -/
-def onePoly : SPoly := [⟨1, []⟩]
+def onePoly : SPoly α := [⟨1, []⟩]
 
 @[simp] theorem toMon_nil : toMon n [] = 0 := by
   ext i; simp
 
-@[simp] theorem toMv_onePoly : toMv n onePoly = 1 := by
+@[simp] theorem toMv_onePoly : toMv n (onePoly : SPoly α) = 1 := by
   simp [onePoly, toMv, toTerm, toMon_nil]
 
 /-- A membership certificate for 1 makes the span the unit ideal. -/
-theorem checkMembership_one_span_top {gs cs : List SPoly}
+theorem checkMembership_one_span_top {gs cs : List (SPoly α)}
     (h : checkMembership onePoly gs cs = true) :
     spanOf n gs = ⊤ := by
   have := checkMembership_sound n h
@@ -99,32 +100,32 @@ theorem checkMembership_one_span_top {gs cs : List SPoly}
 certificate checks, then the `gs` have no common zero in any
 nontrivial commutative ℚ-algebra — every point of every variety
 `V(gs)` over every field extension of ℚ is ruled out at once. -/
-theorem no_common_zero {gs cs : List SPoly}
+theorem no_common_zero {gs cs : List (SPoly α)}
     (h : checkMembership onePoly gs cs = true)
-    {K : Type*} [CommRing K] [Nontrivial K] [Algebra ℚ K]
+    {K : Type*} [CommRing K] [Nontrivial K] [Algebra α K]
     (pt : Fin n → K)
     (hv : ∀ g ∈ gs, aeval pt (toMv n g) = 0) : False := by
-  have h1 : (1 : MvPolynomial (Fin n) ℚ) ∈ spanOf n gs := by
+  have h1 : (1 : MvPolynomial (Fin n) α) ∈ spanOf n gs := by
     rw [checkMembership_one_span_top n h]; trivial
-  have hker : spanOf n gs ≤ RingHom.ker (aeval pt : MvPolynomial (Fin n) ℚ →ₐ[ℚ] K) := by
+  have hker : spanOf n gs ≤ RingHom.ker (aeval pt : MvPolynomial (Fin n) α →ₐ[α] K) := by
     rw [spanOf]
     refine Ideal.span_le.mpr ?_
     rintro x hx
     simp only [Set.mem_setOf_eq, List.mem_map] at hx
     obtain ⟨g, hg, rfl⟩ := hx
     exact hv g hg
-  have : aeval pt (1 : MvPolynomial (Fin n) ℚ) = 0 := hker h1
+  have : aeval pt (1 : MvPolynomial (Fin n) α) = 0 := hker h1
   rw [map_one] at this
   exact one_ne_zero this
 
 /-! ### Matrices and complexes -/
 
 /-- Interpretation of a sparse matrix with declared dimensions. -/
-def toMatrix (r c : Nat) (M : SMatrix) :
-    Matrix (Fin r) (Fin c) (MvPolynomial (Fin n) ℚ) :=
+def toMatrix (r c : Nat) (M : SMatrix α) :
+    Matrix (Fin r) (Fin c) (MvPolynomial (Fin n) α) :=
   Matrix.of fun i j => toMv n ((M.getD i []).getD j [])
 
-theorem col_getD (B : SMatrix) (j k : Nat) :
+theorem col_getD (B : SMatrix α) (j k : Nat) :
     (SMatrix.col B j).getD k [] = (B.getD k []).getD j [] := by
   induction B generalizing k with
   | nil => simp [SMatrix.col]
@@ -134,9 +135,9 @@ theorem col_getD (B : SMatrix) (j k : Nat) :
     | succ k => simpa [SMatrix.col] using ih k
 
 /-- Bridge between list sums and `Fin`-indexed sums. -/
-theorem sum_zipWith_eq_finsum {α : Type*} [AddCommMonoid α]
-    (f : SPoly → SPoly → α) :
-    ∀ (m : Nat) (xs ys : List SPoly), xs.length = m → ys.length = m →
+theorem sum_zipWith_eq_finsum {β : Type*} [AddCommMonoid β]
+    (f : SPoly α → SPoly α → β) :
+    ∀ (m : Nat) (xs ys : List (SPoly α)), xs.length = m → ys.length = m →
     (List.zipWith f xs ys).sum = ∑ k : Fin m, f (xs.getD k []) (ys.getD k [])
   | 0, [], [], _, _ => by simp
   | m + 1, x :: xs, y :: ys, hx, hy => by
@@ -145,7 +146,7 @@ theorem sum_zipWith_eq_finsum {α : Type*} [AddCommMonoid α]
     exact sum_zipWith_eq_finsum f m xs ys
       (by simpa using hx) (by simpa using hy)
 
-theorem checkComplexPair_sound {r m c : Nat} {A B : SMatrix}
+theorem checkComplexPair_sound {r m c : Nat} {A B : SMatrix α}
     (h : checkComplexPair r m c A B = true) :
     toMatrix n r m A * toMatrix n m c B = 0 := by
   simp only [checkComplexPair, Bool.and_eq_true, beq_iff_eq,

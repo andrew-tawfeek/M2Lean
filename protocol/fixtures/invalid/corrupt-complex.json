@@ -1,5 +1,5 @@
 {
- "m2leanVersion": "0.1.0",
+ "m2leanVersion": "0.2.0",
  "documentId": "fixture-corrupt-complex",
  "objects": [
   {
@@ -511,7 +511,7 @@
  "provenance": {
   "producer": "Macaulay2",
   "producerVersion": "1.24.11",
-  "packageVersion": "0.1.0",
+  "packageVersion": "0.2.0",
   "algorithm": "gb (engine default)",
   "options": {},
   "deterministic": true

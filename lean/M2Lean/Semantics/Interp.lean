@@ -2,7 +2,7 @@
 M2Lean: interpretation of the sparse model into mathlib.
 
 `toMv n` maps a sparse term list to an element of
-`MvPolynomial (Fin n) ℚ`.  The theorems here show that the executable
+`MvPolynomial (Fin n) α`.  The theorems here show that the executable
 operations of `Protocol.Sparse` commute with this interpretation; they
 are the bridge that turns byte-level certificate checks into
 statements about actual polynomials.  This file is part of the
@@ -17,6 +17,9 @@ open MvPolynomial
 
 noncomputable section
 
+set_option linter.unusedSectionVars false
+
+variable {α : Type*} [CommRing α] [DecidableEq α]
 variable (n : Nat)
 
 /-- Exponent list as a finitely supported function on `Fin n`.
@@ -28,30 +31,30 @@ def toMon (e : List Nat) : Fin n →₀ ℕ :=
     toMon n e i = e.getD i 0 := rfl
 
 /-- Interpretation of a term. -/
-def toTerm (t : STerm) : MvPolynomial (Fin n) ℚ :=
+def toTerm (t : STerm α) : MvPolynomial (Fin n) α :=
   monomial (toMon n t.exps) t.coeff
 
 /-- Interpretation of a sparse polynomial. -/
-def toMv (p : SPoly) : MvPolynomial (Fin n) ℚ :=
+def toMv (p : SPoly α) : MvPolynomial (Fin n) α :=
   (p.map (toTerm n)).sum
 
-@[simp] theorem toMv_nil : toMv n [] = 0 := rfl
+@[simp] theorem toMv_nil : toMv n ([] : SPoly α) = 0 := rfl
 
-@[simp] theorem toMv_cons (t : STerm) (p : SPoly) :
+@[simp] theorem toMv_cons (t : STerm α) (p : SPoly α) :
     toMv n (t :: p) = toTerm n t + toMv n p := by
   simp [toMv]
 
-theorem toMv_append (p q : SPoly) :
+theorem toMv_append (p q : SPoly α) :
     toMv n (p ++ q) = toMv n p + toMv n q := by
   simp [toMv]
 
-theorem toMv_perm {p q : SPoly} (h : p.Perm q) :
+theorem toMv_perm {p q : SPoly α} (h : p.Perm q) :
     toMv n p = toMv n q :=
   (h.map (toTerm n)).sum_eq
 
 /-- Human-readable form of a term: `C c · Π xᵢ^eᵢ`.  Used to restate
 certified conclusions in terms of `MvPolynomial.X`. -/
-theorem toTerm_eq_prod (c : ℚ) (es : List Nat) :
+theorem toTerm_eq_prod (c : α) (es : List Nat) :
     toTerm n ⟨c, es⟩ = C c * ∏ i : Fin n, X i ^ es.getD i 0 := by
   rw [toTerm, monomial_eq]
   congr 1
@@ -73,17 +76,17 @@ theorem toMon_zipAdd (as bs : List Nat) :
   rw [Finsupp.add_apply, toMon_apply, toMon_apply, toMon_apply]
   exact getD_zipAdd as bs i
 
-theorem toTerm_mulTerm (s t : STerm) :
+theorem toTerm_mulTerm (s t : STerm α) :
     toTerm n (mulTerm s t) = toTerm n s * toTerm n t := by
   simp [toTerm, mulTerm, toMon_zipAdd, monomial_mul]
 
-theorem toMv_map_mulTerm (s : STerm) (q : SPoly) :
+theorem toMv_map_mulTerm (s : STerm α) (q : SPoly α) :
     toMv n (q.map (mulTerm s)) = toTerm n s * toMv n q := by
   induction q with
   | nil => simp
   | cons t q ih => simp [ih, toTerm_mulTerm, mul_add]
 
-theorem toMv_mulRaw (p q : SPoly) :
+theorem toMv_mulRaw (p q : SPoly α) :
     toMv n (mulRaw p q) = toMv n p * toMv n q := by
   induction p with
   | nil => simp [mulRaw]
@@ -93,7 +96,7 @@ theorem toMv_mulRaw (p q : SPoly) :
 
 /-! ### Normalization preserves the interpretation -/
 
-theorem toMv_insertMerged (t : STerm) (l : SPoly) :
+theorem toMv_insertMerged (t : STerm α) (l : SPoly α) :
     toMv n (insertMerged t l) = toTerm n t + toMv n l := by
   cases l with
   | nil =>
@@ -112,14 +115,14 @@ theorem toMv_insertMerged (t : STerm) (l : SPoly) :
     · by_cases h0 : t.coeff = 0 <;>
         simp [insertMerged, he, h0, toTerm]
 
-theorem toMv_merge1 (p : SPoly) : toMv n (merge1 p) = toMv n p := by
+theorem toMv_merge1 (p : SPoly α) : toMv n (merge1 p) = toMv n p := by
   induction p with
   | nil => simp [merge1]
   | cons t rest ih =>
     simp only [merge1, List.foldr_cons] at *
     rw [toMv_insertMerged, ih, toMv_cons]
 
-theorem toMv_sortTerms (p : SPoly) : toMv n (sortTerms p) = toMv n p :=
+theorem toMv_sortTerms (p : SPoly α) : toMv n (sortTerms p) = toMv n p :=
   toMv_perm n (List.perm_insertionSort termGE p)
 
 theorem getD_trimExps : ∀ (e : List Nat) (i : Nat),
@@ -146,34 +149,34 @@ theorem toMon_trimExps (es : List Nat) :
   rw [toMon_apply, toMon_apply]
   exact getD_trimExps es i
 
-theorem toTerm_canonTerm (t : STerm) :
+theorem toTerm_canonTerm (t : STerm α) :
     toTerm n (canonTerm t) = toTerm n t := by
   simp [canonTerm, toTerm, toMon_trimExps]
 
-theorem toMv_map_canonTerm (p : SPoly) :
+theorem toMv_map_canonTerm (p : SPoly α) :
     toMv n (p.map canonTerm) = toMv n p := by
   induction p with
   | nil => simp
   | cons t p ih => simp [ih, toTerm_canonTerm]
 
-theorem toMv_normalize (p : SPoly) : toMv n (normalize p) = toMv n p := by
+theorem toMv_normalize (p : SPoly α) : toMv n (normalize p) = toMv n p := by
   rw [normalize, toMv_merge1, toMv_sortTerms, toMv_map_canonTerm]
 
 /-- Soundness of the executable equality test. -/
-theorem polyEq_sound {p q : SPoly} (h : polyEq p q = true) :
+theorem polyEq_sound {p q : SPoly α} (h : polyEq p q = true) :
     toMv n p = toMv n q := by
   have := of_decide_eq_true h
   rw [← toMv_normalize n p, ← toMv_normalize n q, this]
 
 /-- Soundness of the executable zero test. -/
-theorem polyIsZero_sound {p : SPoly} (h : polyIsZero p = true) :
+theorem polyIsZero_sound {p : SPoly α} (h : polyIsZero p = true) :
     toMv n p = 0 := by
   have := of_decide_eq_true h
   rw [← toMv_normalize n p, this, toMv_nil]
 
 /-! ### Linear combinations -/
 
-theorem toMv_combo (cs gs : List SPoly) :
+theorem toMv_combo (cs gs : List (SPoly α)) :
     toMv n (combo cs gs) =
       ((List.zipWith (fun c g => toMv n c * toMv n g) cs gs)).sum := by
   induction cs generalizing gs with
@@ -187,7 +190,7 @@ theorem toMv_combo (cs gs : List SPoly) :
 
 /-- The interpretation of a certified linear combination lies in the
 span of the interpreted generators. -/
-theorem combo_mem_span (cs gs : List SPoly) :
+theorem combo_mem_span (cs gs : List (SPoly α)) :
     toMv n (combo cs gs) ∈ Ideal.span {p | p ∈ gs.map (toMv n)} := by
   induction cs generalizing gs with
   | nil => simp [combo]

@@ -18,7 +18,7 @@ open M2Lean
 /-- Generators of I(C) + I(L): the three 2x2 minors cutting out the
 twisted cubic cone, followed by the ideal of the line
 {(t,1,0,0)} = V(y-1, z, w).  Variables x,y,z,w are positions 0-3. -/
-def gens : List SPoly := [
+def gens : List (SPoly Rat) := [
     [⟨((-1) : Rat), [0, 2, 0, 0]⟩, ⟨(1 : Rat), [1, 0, 1, 0]⟩],
     [⟨((-1) : Rat), [0, 1, 1, 0]⟩, ⟨(1 : Rat), [1, 0, 0, 1]⟩],
     [⟨((-1) : Rat), [0, 0, 2, 0]⟩, ⟨(1 : Rat), [0, 1, 0, 1]⟩],
@@ -27,7 +27,7 @@ def gens : List SPoly := [
     [⟨(1 : Rat), [0, 0, 0, 1]⟩]]
 
 /-- Macaulay2's cofactors c_i with 1 = sum c_i * gens_i. -/
-def cofactors : List SPoly := [
+def cofactors : List (SPoly Rat) := [
     [⟨((-1) : Rat), [0, 0, 0, 0]⟩],
     [],
     [],
@@ -37,11 +37,11 @@ def cofactors : List SPoly := [
 
 /-- First differential of the minimal free resolution of R/I(C)
 (the 1x3 matrix of minors). -/
-def resD1 : SMatrix := [
+def resD1 : SMatrix Rat := [
     [[⟨(1 : Rat), [0, 2, 0, 0]⟩, ⟨((-1) : Rat), [1, 0, 1, 0]⟩], [⟨(1 : Rat), [0, 1, 1, 0]⟩, ⟨((-1) : Rat), [1, 0, 0, 1]⟩], [⟨(1 : Rat), [0, 0, 2, 0]⟩, ⟨((-1) : Rat), [0, 1, 0, 1]⟩]]]
 
 /-- Second differential (the 3x2 Eagon-Northcott matrix). -/
-def resD2 : SMatrix := [
+def resD2 : SMatrix Rat := [
     [[⟨((-1) : Rat), [0, 0, 1, 0]⟩], [⟨(1 : Rat), [0, 0, 0, 1]⟩]],
     [[⟨(1 : Rat), [0, 1, 0, 0]⟩], [⟨((-1) : Rat), [0, 0, 1, 0]⟩]],
     [[⟨((-1) : Rat), [1, 0, 0, 0]⟩], [⟨(1 : Rat), [0, 1, 0, 0]⟩]]]
