@@ -12,7 +12,45 @@
 > Reproduce everything with `scripts/lean-build.sh`,
 > `scripts/run-checks.sh`, and `scripts/audit.sh` (WSL/Linux with
 > Macaulay2 and elan).  Design documents live in `docs/`.
-> The remainder of this file is the founding vision document.
+
+## Quickstart
+
+**Coming from Macaulay2?**  You never need to touch Lean.  Load the
+package, do your mathematics as usual, attach claims, and verify:
+
+```m2
+loadPackage("M2Lean", FileName => "m2/M2Lean.m2")
+R = QQ[x,y];
+I = ideal(x+y, x-y);
+D = newM2LeanDocument "mysession";
+membershipClaim(D, "mem1", x^3 + y^3, I);
+verifyWithLean D
+--   mem1: accepted [proved]  element lies in the ideal
+```
+
+The document written by `writeM2LeanDocument` is a permanent,
+machine-checkable record of your computation — coefficient field,
+monomial order, versions, and evidence included.  Requires the
+`m2lean-check` binary (built once via `scripts/lean-build.sh
+m2lean-check`, or set `M2LEAN_CHECK`).
+
+**Coming from Lean?**  Certified M2 computations arrive as ordinary
+mathlib propositions (see `lean/M2Lean/Examples/` — no `sorry`, no
+extra axioms), and with `M2` on your `PATH` you can delegate a
+computation from inside a proof:
+
+```lean
+import M2Lean.Tactic.Macaulay2
+
+example : toMv 2 f ∈ spanOf 2 gs := by macaulay2
+```
+
+The mathematical content lives in `lean/M2Lean/Groebner/`:
+Buchberger's criterion in standard-representation form and the
+degree-reverse-lexicographic `MonomialOrder`, both stated against
+mathlib's own theory.
+
+The remainder of this file is the founding vision document.
 
 # Founding exchange
 

@@ -12,6 +12,14 @@
 \usepackage{url}
 \usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
 \usepackage{microtype}
+\usepackage{framed}
+
+% audience boxes: a colored left bar in the owning system's color,
+% matching the code-listing aesthetic
+\newenvironment{audiencebox}[1]{%
+  \def\FrameCommand{{\color{#1}\vrule width 2.5pt}\hspace{9pt}}%
+  \MakeFramed{\advance\hsize-\width\FrameRestore}\noindent\ignorespaces}%
+  {\endMakeFramed}
 
 % ---------------------------------------------------------------
 % Color scheme.  Red = Macaulay2 (untrusted computation),
@@ -81,7 +89,7 @@
 \texttt{atawfeek.math@gmail.com}.  The implementation described here
 was developed with the assistance of Claude (Anthropic).  Code and all
 artifacts: \url{https://github.com/andrew-tawfeek/M2Lean}.}}
-\date{July 2026 \,---\, version 2.0}
+\date{July 2026}
 
 \begin{document}
 \maketitle
@@ -113,17 +121,35 @@ are rejected; continuous integration replays everything.
 
 \section{Introduction}\label{sec:intro}
 
-A working algebraic geometer who wants to \emph{compute}---a Gr\"obner
-basis, a free resolution, a primary decomposition---reaches for a
-computer algebra system such as \M{}~\cite{M2}.  A mathematician who
-wants to \emph{certify}---to produce a machine-checked proof---reaches
-for a proof assistant such as \lean{}~4~\cite{lean4} with its
-mathematical library \mathlib{}~\cite{mathlib}.  These two activities
-ought to be two halves of one workflow.  In practice they are
-disconnected: \M{}'s answers are the output of three decades of
-highly optimized, unverified C++ and interpreted code, and \lean{}'s
+Somewhere in the literature of commutative algebra, a proof reaches a
+step that reads: \emph{``a Macaulay2 computation shows that the
+minimal free resolution has Betti numbers $1, 3, 2$.''}  The referee
+does not re-run the computation.  The reader a decade later cannot:
+the session is gone, its package versions, options, and monomial-order
+conventions unrecorded.  Journals accept such sentences routinely ---
+computation inside proofs is ordinary mathematics now --- and yet each
+one is a small act of faith in three decades of highly optimized,
+unverified C++.  The anxiety is not hypothetical, and mathematics has
+already answered it once: the celebrated formalizations of the
+four-color theorem~\cite{gonthier}, the Kepler
+conjecture~\cite{hales-flyspeck}, and the Liquid Tensor
+Experiment~\cite{scholze-liquid} were, at heart, campaigns to remove
+exactly this kind of faith from exactly such computational steps.
+M2Lean is a system for removing it from computational commutative
+algebra --- routinely, cheaply, and without asking anyone to abandon
+their tools.
+
+The two tools in question serve different masters.  A working
+algebraic geometer who wants to \emph{compute}---a Gr\"obner basis, a
+free resolution, a primary decomposition---reaches for a computer
+algebra system such as \M{}~\cite{M2}.  A mathematician who wants to
+\emph{certify}---to produce a machine-checked proof---reaches for a
+proof assistant such as \lean{}~4~\cite{lean4} with its mathematical
+library \mathlib{}~\cite{mathlib}.  These ought to be two halves of
+one workflow; in practice they are disconnected, because \lean{}'s
 algebra library, while remarkably broad, contains almost none of the
-executable machinery of computational commutative algebra.
+executable machinery of computational commutative algebra, and \M{}'s
+answers carry no evidence a proof assistant could accept.
 
 M2Lean is a bridge between the two systems designed around a division
 of labor rather than a translation:
@@ -144,6 +170,37 @@ verify \M{}'s implementation.  It is to create a shared mathematical
 language and a bidirectional protocol through which a computation can
 cross from one system to the other \emph{without losing its meaning,
 its assumptions, or its checkability}.
+
+\paragraph{Finding is hard; checking is easy.}
+The entire design rests on one asymmetry.  Deciding ideal membership
+is EXPSPACE-complete in general~\cite{mayr-meyer}; Gr\"obner engines
+represent decades of algorithmic engineering precisely because the
+\emph{search} is expensive.  But the witness the search produces ---
+cofactors expressing an element in the generators, division quotients
+realizing an S-polynomial reduction --- can be verified by checking
+finitely many polynomial identities, a task a patient student could
+do by hand.  M2Lean asks \M{} only for what its algorithms already
+possess internally (witnesses) and asks \lean{} only for what a proof
+kernel is built to do (check them).  Neither system is asked to
+become the other.  This is why the bridge is cheap: certified answers
+in this paper cost milliseconds to re-verify and kilobytes to store
+(\S\ref{sec:experiments}), while remaining checkable by any \lean{}
+installation, forever, with every assumption pinned down.
+
+\paragraph{What arrives is more than what was sent.}
+A certificate crosses the bridge as arithmetic and arrives as
+geometry.  In the flagship example (\S\ref{sec:flagship}), \M{}'s
+witness is a two-line polynomial identity,
+$1 = (-1)(xz-y^2) + (-y-1)(y-1) + x\cdot z$; the \lean{} theorem it
+yields says that the cone over the twisted cubic and a line have no
+common point over \emph{every} nontrivial commutative
+$\QQ$-algebra --- a quantification \M{} cannot even express.  In the
+Galois example (Appendix~\ref{app:more}), a two-term B\'ezout
+identity arrives as \code{Polynomial.Separable}, a named concept of
+the mathematical library, ready to feed into field theory.  The
+bridge is not a printer: \lean{} adds generality and meaning that
+\M{} does not have, and \M{} supplies discoveries that \lean{} could
+not have found.
 
 \paragraph{The skeptic's contract.}
 M2Lean adopts the classical skeptical stance toward computer
@@ -209,9 +266,58 @@ of the bridge, the \emph{M2Lean Bridge Core}:
   replays all 19 checks and the axiom audit on every push.
 \end{enumerate}
 
+\paragraph{How to read this paper.}
+Readers coming from \M{} may prefer \S\ref{sec:whatbuys},
+\S\ref{sec:m2}, the flagship walk-through (\S\ref{sec:flagship}), and
+the condensed examples of Appendix~\ref{app:more}; none of these
+require reading \lean{}.  Readers coming from \lean{} will find the
+mathematical content in \S\ref{sec:lean}--\S\ref{sec:tactic},
+especially the Gr\"obner formalization (\S\ref{sec:groebner}).
+Readers inclined to trust neither system should start with the trust
+model (\S\ref{sec:trust}) and the adversarial evaluation
+(\S\ref{sec:experiments}).
+
 Everything is open source; the repository contains the protocol
 specification, both implementations, all fixtures, and scripts that
 reproduce every claim in this paper~\cite{m2lean-repo}.
+
+\section{What this buys you}\label{sec:whatbuys}
+
+\begin{audiencebox}{m2col}
+\textbf{\textcolor{m2col}{If you use Macaulay2.}}\quad
+Your computations become citable.  A session that today ends with a
+printed Betti table can end with one extra call,
+\code{verifyWithLean D}, and produce a certificate that any \lean{}
+installation --- a referee's, a reader's, one running twenty years
+from now --- can re-check, with the coefficient field, monomial
+order, grading, and package versions pinned down machine-readably.
+You never write a line of \lean{}.  The discipline pays even before
+verification: making certificates exportable forced exact answers to
+questions the ecosystem usually leaves implicit (which GRevLex
+tie-break convention is in force; what the division algorithm
+guarantees about its quotients), and the shared adversarial fixtures
+would catch any future drift.  And the statuses are honest: a
+computation is reported as \emph{computed}, \checked{}, or \proved{},
+never a conflation of the three.
+\end{audiencebox}
+
+\begin{audiencebox}{leancol}
+\textbf{\textcolor{leancol}{If you use Lean.}}\quad
+Thirty years of computational commutative algebra become available to
+your proofs without anyone reimplementing them.  You do not need a
+verified Gr\"obner \emph{engine} to use a Gr\"obner basis: you need a
+witness and a checker, and the checker's soundness theorem makes the
+result a genuine \mathlib{} proposition --- here, span membership,
+ideal equality, non-membership, and vanishing compositions, consumed
+by ordinary theorems with no new axioms and no \code{sorry}.  The
+bridge is also a formalization engine rather than a bypass:
+Buchberger's criterion and the degree-reverse-lexicographic order
+entered \lean{} \emph{because} the checker demanded them
+(\S\ref{sec:groebner}), and both are stated against \mathlib{}'s own
+\code{MonomialOrder} theory for upstreaming.  At the ergonomic end,
+\code{by macaulay2} (\S\ref{sec:tactic}) makes the round trip a
+single tactic call.
+\end{audiencebox}
 
 \section{Related work}\label{sec:related}
 
@@ -330,7 +436,8 @@ to eliminate.
 
 \section{The interchange protocol}\label{sec:protocol}
 
-Version 0.2.0 of the protocol deliberately covers a small, exactly
+The protocol (currently version 0.2.0, the string consumers refuse
+to mismatch) deliberately covers a small, exactly
 specified fragment: coefficients in $\QQ$ (reduced fractions of
 decimal strings; JSON numbers are never used for mathematical data)
 or $\mathbb{F}_p$ ($p$ verified prime by the consumer); multivariate
@@ -386,8 +493,8 @@ the producer must supply quotients $q_1,\dots,q_r$ such that
   \qquad
   \lm(q_k b_k) \,\preceq\, \lm\bigl(S(b_i,b_j)\bigr) \text{ whenever } q_k \neq 0,
 \]
-i.e.\ a \emph{standard representation}, for \emph{every} pair (since
-0.2.0 coprime pairs may not be omitted: this keeps the soundness proof
+i.e.\ a \emph{standard representation}, for \emph{every} pair
+(coprime pairs may not be omitted: this keeps the soundness proof
 within the standard-representation criterion, without Buchberger's
 first criterion).  By Buchberger's criterion in
 standard-representation form~\cite[Thm.~5.64]{becker-weispfenning}%
@@ -406,8 +513,8 @@ supplies division data with a nonzero remainder no term of which is
 divisible by a basis leading monomial.  Its soundness genuinely
 \emph{requires} the Gr\"obner property --- a reduced nonzero remainder
 refutes membership only against a true Gr\"obner basis --- which is
-why this claim kind only became available at the \proved{} level
-together with the Buchberger formalization.
+why this claim kind exists at the \proved{} level only on the
+strength of the Buchberger formalization.
 
 \section{The Macaulay2 bridge package}\label{sec:m2}
 
@@ -428,7 +535,7 @@ writeM2LeanDocument(D, "session-1.json");   -- crosses the boundary
 \end{lstlisting}
 
 \noindent
-Since version 0.2.0 the loop closes without leaving the session:
+The loop closes without leaving the session:
 
 \begin{lstlisting}[style=m2style]
 verifyWithLean D
@@ -541,13 +648,11 @@ explicit witness.
 
 The Gr\"obner checker \code{checkGroebner} verifies S-pair coverage,
 each standard representation with its leading-monomial side
-conditions, and both span inclusions.  In the previous version of
-this work the implication ``criterion verified $\Rightarrow$
-Gr\"obner basis'' was cited, not proved, and the claim reported
-\checked{}.  That gap is now closed: \S\ref{sec:groebner} describes
-the formalization that promotes it to \proved{} --- retroactively,
-for every certificate ever produced, with no change to \M{} or the
-protocol.
+conditions, and both span inclusions.  The implication ``criterion
+verified $\Rightarrow$ Gr\"obner basis'' is not cited here but
+proved: \S\ref{sec:groebner} describes the formalization that puts
+these claims at the \proved{} level --- for every certificate ever
+produced, with no change to \M{} or the protocol.
 
 \subsection{Kernel-checked certificate consumption}
 
@@ -568,10 +673,10 @@ arbitrary-precision arithmetic including \code{Nat.gcd}), so
 
 \section{The formalized Gr\"obner tier}\label{sec:groebner}
 
-The centerpiece of this revision is that the Gr\"obner checker is no
-longer merely executable: its acceptance now \emph{implies} the
-Gr\"obner property by a kernel-checked proof.  Three formalizations
-were required, none previously available in \mathlib{}.
+The Gr\"obner checker is not merely executable: its acceptance
+\emph{implies} the Gr\"obner property by a kernel-checked proof.
+Three formalizations were required, none previously available in
+\mathlib{}.
 
 \paragraph{Buchberger's criterion.}
 We prove the standard-representation form of Buchberger's
@@ -856,18 +961,42 @@ document & defect & outcome \\
 \end{tabular}
 \end{center}
 
-All checks, including regenerating the \M{} documents (the flagship,
-the polynomial workflows, and the six appendix crossings), complete
-in seconds on a laptop; kernel-checking the flagship certificates adds
-a few seconds to the \lean{} build.  The whole pipeline runs in
+\paragraph{Cost.}
+The finding-is-hard/checking-is-easy asymmetry of
+\S\ref{sec:intro} is visible in measurements (one laptop core,
+median of three runs):
+
+\begin{center}
+\small
+\begin{tabular}{lrrr}
+\toprule
+document & claims & size (kB) & verification (ms) \\
+\midrule
+\code{flagship} (unit ideal, GB, non-mem., resolution) & 5 & 5.3 & 33 \\
+\code{coloring} ($K_4$ Nullstellensatz witness) & 1 & 4.5 & 32 \\
+\code{polynomial} (identity, membership, span $\times 2$) & 4 & 2.5 & 31 \\
+\code{primefield} (GB, membership, non-mem.\ over $\mathbb{F}_{101}$) & 3 & 2.3 & 34 \\
+\code{galois} ($\Phi_8$ separability witness) & 1 & 0.9 & 31 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Verification wall time is dominated by process startup --- the
+checking itself is sub-millisecond at this scale --- and generating
+\emph{all} documents with \M{} takes under a second
+(\code{scripts/bench.sh}).  Kernel-level re-verification is the
+expensive tier, and still cheap: within a warm build, elaborating the
+Galois theorem file (certificate check plus the transfer to
+\code{Polynomial.Separable}) takes $2.9$\,s, and the flagship file
+(two kernel certificate checks plus the interpretation lemmas)
+$5.6$\,s.  At this scale, certificates are the same order of
+magnitude as the answers they certify; how they grow is a limitation
+discussed in \S\ref{sec:roadmap}.  The whole pipeline runs in
 continuous integration on every push: a GitHub Actions job installs
 \M{} and \lean{}, rebuilds the library (including the
 \code{by macaulay2} demo, which spawns a live \M{} process during
 elaboration), regenerates all documents, replays the 19
-accept/reject checks, and greps the axiom audit.  At this scale certificate
-size is a non-issue (the protocol's verbose JSON is a development
-encoding; the specification is deliberately encoding-independent so a
-compact binary form can be added without semantic change).
+accept/reject checks, and greps the axiom audit.
 
 \section{What each system gains}\label{sec:gains}
 
@@ -914,6 +1043,22 @@ Certificates are eagerly embedded rather than streamed, which will
 not survive contact with large computations without a compact
 encoding and reflective checkers.  The \code{by macaulay2} tactic
 handles ground membership goals; reflecting symbolic goals is open.
+
+\paragraph{What about \emph{your} computation?}
+The examples in this paper are deliberately CI-sized; a reader with a
+research-scale computation should calibrate.  What scales today:
+membership-style certificates, whose size tracks the cofactors (often
+comparable to the Gr\"obner basis itself), and everything on the \M{}
+side, which is just ordinary \M{} plus serialization.  What does not
+yet: Gr\"obner certificates carry one standard representation per
+S-pair, so for large bases the evidence can dwarf the answer ---
+the classical certificate-explosion risk --- and the current JSON
+encoding and eagerly-embedded kernel checks would both need the
+planned compact encoding, streaming, and reflective checking before a
+hundred-generator ideal is comfortable.  Nothing in the
+\emph{architecture} obstructs this: the protocol is
+encoding-independent by design, and the soundness theorems are
+already stated against data, not files.
 
 The near-term roadmap, in order of leverage: upstream
 \code{buchberger\_criterion} and \code{degRevLex} to \mathlib{};
@@ -1121,8 +1266,8 @@ table $1,2,1$---is verified at level \checked.}
 
 \subsection*{B.6\quad Finite fields: the same machinery over $\mathbb{F}_{101}$}
 
-Since protocol 0.2.0 the coefficient field is generic: the same
-checkers and the same soundness theorems run over \code{ZMod p}.
+The coefficient field is generic: the same checkers and the same
+soundness theorems run over \code{ZMod p}.
 
 \begin{lstlisting}[style=m2style]
 F = ZZ/101[x,y];  Ip = ideal(x^2 + y^2, x*y - 1);
