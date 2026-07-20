@@ -81,13 +81,24 @@ def zipSub : List Nat → List Nat → List Nat
 def coprimeExps (a b : List Nat) : Bool :=
   (List.zipWith min a b).all (· == 0)
 
-/-- The leading term of `p` with respect to `ord`, after
-normalization; `none` iff `p` is (semantically) zero. -/
+/-- The leading term of `p` with respect to `ord`: the head of the
+`ord`-sorted normalization; `none` iff `p` is (semantically) zero. -/
 def leadTerm? (ord : MonOrder) (p : SPoly α) : Option (STerm α) :=
-  (normalize p).foldl (init := none) fun acc t =>
-    match acc with
-    | none => some t
-    | some s => if ord.cmp t.exps s.exps = .gt then some t else some s
+  (normalizeBy ord p).head?
+
+/-- Certifies that the head of the `ord`-normalization strictly
+dominates every other term — exactly the hypothesis the soundness
+proof needs to identify the head with the abstract leading term.
+(Always true when the sort comparator matches `ord`, but *checked*,
+never assumed.) -/
+def leadOK (ord : MonOrder) (p : SPoly α) : Bool :=
+  match normalizeBy ord p with
+  | [] => false
+  | t :: rest => rest.all fun s => ord.cmp s.exps t.exps = .lt
+
+/-- Every exponent vector of `p` has length at most `n`. -/
+def arityLe (n : Nat) (p : SPoly α) : Bool :=
+  p.all fun t => t.exps.length ≤ n
 
 def negP (p : SPoly α) : SPoly α := p.map fun t => { t with coeff := -t.coeff }
 
@@ -98,47 +109,48 @@ structure SPairCert (α : Type*) where
   quotients : List (SPoly α)
   deriving Repr
 
+/-- The sparse S-polynomial of two polynomials with the given leading
+terms. -/
+def sparseSPoly (ti tj : STerm α) (bi bj : SPoly α) : SPoly α :=
+  let l := zipMax ti.exps tj.exps
+  mulRaw [⟨1 / ti.coeff, zipSub l ti.exps⟩] bi ++
+  mulRaw [⟨-(1 / tj.coeff), zipSub l tj.exps⟩] bj
+
 /-- Verify one S-pair standard representation. -/
 def checkSPair (ord : MonOrder) (basis : List (SPoly α)) (sp : SPairCert α) : Bool :=
   match basis[sp.i]?, basis[sp.j]? with
   | some bi, some bj =>
     match leadTerm? ord bi, leadTerm? ord bj with
     | some ti, some tj =>
-      let l := zipMax ti.exps tj.exps
-      let s : SPoly α :=
-        mulRaw [⟨1 / ti.coeff, zipSub l ti.exps⟩] bi ++
-        mulRaw [⟨-(1 / tj.coeff), zipSub l tj.exps⟩] bj
+      leadOK ord bi && leadOK ord bj &&
+      let s : SPoly α := sparseSPoly ti tj bi bj
       sp.quotients.length == basis.length &&
       polyEq s (combo sp.quotients basis) &&
-      -- leading-monomial bound for every nonzero quotient
+      -- leading-monomial bound for every nonzero quotient product
       (List.zip sp.quotients basis).all fun (q, b) =>
-        let prod := normalize (mulRaw q b)
-        prod.isEmpty ||
-        (match leadTerm? ord prod, leadTerm? ord s with
-         | some tp, some ts => ord.cmp tp.exps ts.exps ≠ .gt
-         | _, some _ => true      -- product is zero: fine
-         | _, none => false)      -- S-poly zero but product nonzero
-    | _, _ => false               -- zero basis elements are rejected
+        match leadTerm? ord (mulRaw q b), leadTerm? ord s with
+        | none, _ => true                 -- product is zero: fine
+        | some tp, some ts =>
+          leadOK ord (mulRaw q b) && leadOK ord s &&
+          ord.cmp tp.exps ts.exps ≠ .gt
+        | some _, none => false           -- S-poly zero but product nonzero
+    | _, _ => false                       -- zero basis elements are rejected
   | _, _ => false
 
-/-- Every non-coprime pair `i < j` is covered by some S-pair
-certificate. -/
+/-- Every pair `i < j` is covered by some S-pair certificate. -/
 def sPairsCover (ord : MonOrder) (basis : List (SPoly α)) (sps : List (SPairCert α)) : Bool :=
   (List.range basis.length).all fun i =>
     (List.range basis.length).all fun j =>
-      if h : i < j then
-        match leadTerm? ord basis[i]!, leadTerm? ord basis[j]! with
-        | some _, some _ =>
-          -- protocol 0.1.x: every pair requires evidence (no coprime
-          -- skip), so that soundness needs only the standard-
-          -- representation criterion, not Buchberger's first criterion
-          sps.any fun sp => sp.i == i && sp.j == j
-        | _, _ => false
+      if i < j then sps.any fun sp => sp.i == i && sp.j == j
       else true
 
-/-- The full Gröbner-basis certificate check. -/
-def checkGroebner (ord : MonOrder) (gens basis : List (SPoly α))
+/-- The full Gröbner-basis certificate check.  `n` is the declared
+ring arity; bounding every exponent vector by it lets the soundness
+theorem interpret all monomials in `Fin n`. -/
+def checkGroebner (n : Nat) (ord : MonOrder) (gens basis : List (SPoly α))
     (basisCof genCof : List (List (SPoly α))) (sps : List (SPairCert α)) : Bool :=
+  (gens ++ basis ++ basisCof.flatten ++ genCof.flatten ++
+    sps.flatMap (·.quotients)).all (arityLe n) &&
   basis.all (fun b => !(normalize b).isEmpty) &&
   checkSpanInclusion basis gens basisCof &&
   checkSpanInclusion gens basis genCof &&
@@ -156,12 +168,14 @@ leading monomial of the basis.  Sound only in combination with an
 accepted Gröbner certificate for `basis` (see `Verify`): the reduced
 nonzero remainder contradicts the Gröbner property if `f` were a
 member. -/
-def checkNonMembership (ord : MonOrder) (basis : List (SPoly α))
+def checkNonMembership (n : Nat) (ord : MonOrder) (basis : List (SPoly α))
     (f : SPoly α) (quots : List (SPoly α)) (r : SPoly α) : Bool :=
+  ([f, r] ++ quots ++ basis).all (arityLe n) &&
   quots.length == basis.length &&
   polyEq f (addRaw (combo quots basis) r) &&
   !(normalize r).isEmpty &&
   (normalize r).all fun t => basis.all fun b =>
+    leadOK ord b &&
     match leadTerm? ord b with
     | some tb => !(expsLe tb.exps t.exps)
     | none => false

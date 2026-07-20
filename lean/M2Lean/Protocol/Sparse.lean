@@ -92,6 +92,15 @@ instance : DecidableRel (termGE (α := α)) := fun s t => by
 
 def sortTerms (p : SPoly α) : SPoly α := List.insertionSort termGE p
 
+/-- Sorting relation for an arbitrary supported order. -/
+def termGEBy (ord : MonOrder) (s t : STerm α) : Prop := ord.cmp s.exps t.exps ≠ .lt
+
+instance {ord : MonOrder} : DecidableRel (termGEBy (α := α) ord) := fun s t => by
+  unfold termGEBy; infer_instance
+
+def sortTermsBy (ord : MonOrder) (p : SPoly α) : SPoly α :=
+  List.insertionSort (termGEBy ord) p
+
 /-- Fold step of `merge1`: prepend `t` to an already-merged tail,
 combining with the head when the exponent vectors agree and dropping
 zero coefficients.  Structural recursion only, so that certificate
@@ -124,6 +133,12 @@ def canonTerm (t : STerm α) : STerm α := ⟨t.coeff, trimExps t.exps⟩
 
 /-- Canonicalize a raw term list. -/
 def normalize [DecidableEq α] [Zero α] [Add α] (p : SPoly α) : SPoly α := merge1 (sortTerms (p.map canonTerm))
+
+/-- Canonicalize with the given order's comparator, so the head of the
+result is the leading term with respect to that order (used by the
+Gröbner checkers; `normalize` itself uses a fixed comparator). -/
+def normalizeBy [DecidableEq α] [Zero α] [Add α] (ord : MonOrder) (p : SPoly α) : SPoly α :=
+  merge1 (sortTermsBy ord (p.map canonTerm))
 
 /-! ## Ring operations on raw term lists -/
 

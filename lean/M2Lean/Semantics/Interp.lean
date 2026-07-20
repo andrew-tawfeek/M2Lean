@@ -162,6 +162,14 @@ theorem toMv_map_canonTerm (p : SPoly α) :
 theorem toMv_normalize (p : SPoly α) : toMv n (normalize p) = toMv n p := by
   rw [normalize, toMv_merge1, toMv_sortTerms, toMv_map_canonTerm]
 
+theorem toMv_sortTermsBy (ord : MonOrder) (p : SPoly α) :
+    toMv n (sortTermsBy ord p) = toMv n p :=
+  toMv_perm n (List.perm_insertionSort (termGEBy ord) p)
+
+theorem toMv_normalizeBy (ord : MonOrder) (p : SPoly α) :
+    toMv n (normalizeBy ord p) = toMv n p := by
+  rw [normalizeBy, toMv_merge1, toMv_sortTermsBy, toMv_map_canonTerm]
+
 /-- Soundness of the executable equality test. -/
 theorem polyEq_sound {p q : SPoly α} (h : polyEq p q = true) :
     toMv n p = toMv n q := by
