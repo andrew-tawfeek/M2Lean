@@ -12,3 +12,5 @@ import M2Lean.Examples.GaloisData
 import M2Lean.Examples.Galois
 import M2Lean.Groebner.Bridge
 import M2Lean.Groebner.Sound
+import M2Lean.Tactic.Macaulay2
+import M2Lean.Examples.TacticDemo

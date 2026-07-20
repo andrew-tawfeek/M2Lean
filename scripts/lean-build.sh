@@ -14,6 +14,7 @@ if [ ! -f lake-manifest.json ] && [ -f "$SRC/lake-manifest.json" ]; then
   cp "$SRC/lake-manifest.json" .
 fi
 export PATH="$HOME/.elan/bin:$PATH"
+export M2LEAN_HOME="$(cd "$SRC/.." && pwd)"
 if [ "${CI:-}" = "true" ] && [ ! -d .lake/packages/mathlib/.lake/build/lib ]; then
   lake exe cache get
 fi
