@@ -1,5 +1,7 @@
 # M2Lean
 
+[![CI](https://github.com/andrew-tawfeek/M2Lean/actions/workflows/ci.yml/badge.svg)](https://github.com/andrew-tawfeek/M2Lean/actions/workflows/ci.yml)
+
 > **Status (July 2026).** The Bridge Core described below is
 > implemented and tested: see `protocol/` (interchange format 0.1.0),
 > `m2/` (Macaulay2 exporter and certificate generator), `lean/`
