@@ -11,7 +11,8 @@ BIN="$HOME/m2lean-lean/.lake/build/bin/m2lean-check"
 fail=0
 
 if [ "${SKIP_M2:-0}" != "1" ]; then
-  for s in examples/polynomial/polynomial.m2 examples/flagship/flagship.m2; do
+  for s in examples/polynomial/polynomial.m2 examples/flagship/flagship.m2 \
+           examples/appendix/appendix.m2; do
     echo "--- M2 $s"
     M2 --script "$s" || { echo "M2 FAILED: $s"; fail=1; }
   done
@@ -31,7 +32,8 @@ expect() { # expect <accepted|rejected> <file>
 }
 
 for f in protocol/fixtures/valid/*.json; do expect accepted "$f"; done
-for f in examples/polynomial/polynomial.json examples/flagship/flagship.json; do
+for f in examples/polynomial/polynomial.json examples/flagship/flagship.json \
+         examples/appendix/*.json; do
   expect accepted "$f"
 done
 for f in protocol/fixtures/invalid/*.json; do expect rejected "$f"; done
