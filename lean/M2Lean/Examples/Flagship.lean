@@ -28,10 +28,10 @@ open M2Lean MvPolynomial
 /-! ### Step 1: kernel-check the untrusted certificate -/
 
 theorem certificate_checks :
-    checkMembership onePoly gens cofactors = true := by decide +kernel
+    checkMembership onePoly unit1_gens unit1_cofactors = true := by decide +kernel
 
 theorem complex_checks :
-    checkComplexPair 1 3 2 resD1 resD2 = true := by decide +kernel
+    checkComplexPair 1 3 2 cx1_d1 cx1_d2 = true := by decide +kernel
 
 /-! ### Step 2: the certified conclusions -/
 
@@ -40,14 +40,14 @@ minors of `[x y z; y z w]` cutting out the twisted cubic cone,
 followed by the ideal of the line `V(y-1, z, w)`.
 (`X 0, X 1, X 2, X 3` are `x, y, z, w`.) -/
 theorem gens_interp :
-    gens.map (toMv 4) =
+    unit1_gens.map (toMv 4) =
       [X 0 * X 2 - X 1 ^ 2,
        X 0 * X 3 - X 1 * X 2,
        X 1 * X 3 - X 2 ^ 2,
        X 1 - 1,
        X 2,
        X 3] := by
-  simp only [gens, List.map_cons, List.map_nil, toMv_cons, toMv_nil,
+  simp only [unit1_gens, List.map_cons, List.map_nil, toMv_cons, toMv_nil,
     toTerm_eq_prod, Fin.prod_univ_four, List.getD]
   norm_num
   refine ⟨?_, ?_, ?_, ?_⟩ <;> ring
@@ -68,7 +68,7 @@ theorem twisted_cubic_cone_misses_line
     (h6 : aeval p (X 3 : MvPolynomial (Fin 4) ℚ) = 0) : False := by
   refine no_common_zero 4 certificate_checks p ?_
   intro g hg
-  have hm : toMv 4 g ∈ gens.map (toMv 4) := List.mem_map_of_mem hg
+  have hm : toMv 4 g ∈ unit1_gens.map (toMv 4) := List.mem_map_of_mem hg
   rw [gens_interp] at hm
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hm
   rcases hm with h | h | h | h | h | h <;> rw [h] <;> assumption
@@ -86,7 +86,7 @@ theorem no_rational_point (x y z w : ℚ)
 twisted cubic (computed by M2, certified entry-by-entry in the kernel)
 compose to zero — an honest `Matrix` identity in mathlib. -/
 theorem resolution_composes_to_zero :
-    toMatrix 4 1 3 resD1 * toMatrix 4 3 2 resD2 = 0 :=
+    toMatrix 4 1 3 cx1_d1 * toMatrix 4 3 2 cx1_d2 = 0 :=
   checkComplexPair_sound 4 complex_checks
 
 end M2Lean.Flagship
