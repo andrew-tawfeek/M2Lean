@@ -65,7 +65,7 @@
     {⟨}{{$\langle$}}1 {⟩}{{$\rangle$}}1 {Σ}{{$\Sigma$}}1 {∑}{{$\sum$}}1
     {⊆}{{\,$\subseteq$\,}}1 {⊕}{{\,$\oplus$\,}}1 {⁻}{{${}^-$}}1 {ᵢ}{{${}_i$}}1
     {₀}{{${}_0$}}1 {₁}{{${}_1$}}1 {₂}{{${}_2$}}1 {ₖ}{{${}_k$}}1
-    {∃}{{$\exists$\,}}1 {∉}{{\,$\notin$\,}}1 {∧}{{\,$\wedge$\,}}1
+    {∃}{{$\exists$\,}}1 {∉}{{\,$\notin$\,}}1 {∧}{{\,$\wedge$\,}}1 {¬}{{$\lnot$}}1
     {α}{{$\alpha$}}1 {σ}{{$\sigma$}}1 {δ}{{$\delta$}}1
     {³}{{${}^3$}}1 {⁴}{{${}^4$}}1 {Φ}{{$\Phi$}}1 {ζ}{{$\zeta$}}1
     {ⱼ}{{${}_j$}}1 {ₜ}{{${}_t$}}1
@@ -81,6 +81,7 @@
 \newcommand{\lean}{\textit{Lean}}
 \newcommand{\mathlib}{\textsf{mathlib}}
 \newcommand{\QQ}{\mathbb{Q}}
+\newcommand{\CC}{\mathbb{C}}
 \newcommand{\lm}{\operatorname{lm}}
 \newcommand{\code}[1]{\texttt{#1}}
 
@@ -113,9 +114,13 @@ the degree-reverse-lexicographic monomial order (both absent from
 \code{by macaulay2} tactic closes ideal-membership goals by consulting
 a live \M{} process and kernel-checking its answer.  A flagship
 example proves the twisted cubic cone disjoint from a line over every
-nontrivial commutative $\QQ$-algebra; further examples reach into
-invariant theory, algebraic statistics, Galois theory (a certified
-\code{Polynomial.Separable} instance), graph coloring, combinatorial
+nontrivial commutative $\QQ$-algebra; a second turns the July~2026
+counterexample to the Jacobian conjecture into a kernel-checked
+theorem; a third certifies that a graph is
+\emph{not} $3$-colourable from a Nullstellensatz infeasibility witness,
+the counterpart to \mathlib{}'s Combinatorial Nullstellensatz; further
+examples reach into invariant theory, algebraic statistics, Galois
+theory (a certified \code{Polynomial.Separable} instance), combinatorial
 algebraic geometry, and $\mathbb{F}_{101}$.  Corrupted certificates
 are rejected; continuous integration replays everything.
 \end{abstract}
@@ -178,6 +183,30 @@ verify \M{}'s implementation.  It is to create a shared mathematical
 language and a bidirectional protocol through which a computation can
 cross from one system to the other \emph{without losing its meaning,
 its assumptions, or its checkability}.
+
+\paragraph{What a certificate is.}
+The mechanism throughout is the \emph{certificate}: data that lets a
+computational claim be checked by hand, without redoing the work that
+found it.  Deciding that $x^3+y^3$ lies in the ideal $(x+y,\,x-y)$ takes
+a Gr\"obner computation, but the engine can hand back the
+\emph{cofactors} that witness the answer---the \textcolor{m2col}{red}
+multipliers are the ones \M{} had to find; $x+y$ and $x-y$ are just the
+given generators:
+\[
+  x^3+y^3 \;=\; \textcolor{m2col}{\tfrac12(x^2+y^2)}\,(x+y)
+             \;+\; \textcolor{m2col}{\tfrac12(x^2-y^2)}\,(x-y),
+\]
+and now anyone---a referee, a student, or a proof kernel---confirms
+membership just by multiplying out and comparing, with no ideal theory
+at all.  Two properties make this worth building a bridge around.  A
+\emph{wrong} certificate cannot pass the check, so accepting one never
+requires trusting the system that produced it; and the check is small
+and self-contained, so the fact it establishes is permanent and
+portable in a way a vanished \M{} session is not.  Every result in this
+paper travels with evidence of this shape---cofactors for membership,
+division quotients for S-polynomial reductions, change-of-basis data
+for Gr\"obner bases---and \lean{} accepts nothing until it has
+re-checked the evidence for itself.
 
 \paragraph{Finding is hard; checking is easy.}
 The entire design rests on one asymmetry.  Deciding ideal membership
@@ -267,10 +296,15 @@ of the bridge, the \emph{M2Lean Bridge Core}:
   ideal-membership goals are discharged by consulting a live \M{}
   subprocess and kernel-checking the returned certificate at
   elaboration time.
-\item \textbf{A flagship theorem and cross-area examples}
-  (\S\ref{sec:flagship}, Appendix~\ref{app:more}): certified
-  disjointness of the twisted cubic cone and a line over every
-  nontrivial commutative $\QQ$-algebra; a kernel-checked
+\item \textbf{Flagship theorems and cross-area examples}
+  (\S\ref{sec:flagship}, \S\ref{sec:jacobian}, \S\ref{sec:coloring},
+  Appendix~\ref{app:more}): certified disjointness of the twisted cubic
+  cone and a line over every nontrivial commutative $\QQ$-algebra; a
+  kernel-checked refutation of the Jacobian conjecture as stated, from
+  the July~2026 dimension-three counterexample; a certified
+  \code{¬\,SimpleGraph.Colorable} from a Nullstellensatz infeasibility
+  witness---the nonexistence counterpart to \mathlib{}'s Combinatorial
+  Nullstellensatz; a kernel-checked
   \code{Polynomial.Separable} for $X^4+1$ over $\QQ$; Gr\"obner, membership, and
   non-membership over $\mathbb{F}_{101}$; and more --- with an axiom
   audit showing no additions to \lean{}'s standard three axioms.
@@ -959,12 +993,182 @@ that these theorems depend on exactly \lean{}'s three standard axioms
 (\code{propext}, \code{Classical.choice}, \code{Quot.sound})---no
 \code{sorry}, no project-specific axioms, no \code{native\_decide}.
 
+\section{A second flagship: the Jacobian conjecture}\label{sec:jacobian}
+
+The flagship of \S\ref{sec:flagship} was chosen for pedagogy; this one
+was chosen by events.  The \emph{Jacobian conjecture} (O.-H.~Keller,
+1939~\cite{keller1939}) asserts that a polynomial map
+$F:\CC^n\to\CC^n$ whose Jacobian determinant is a nonzero constant has
+a polynomial inverse.  It had been open for every $n\ge 2$ for
+eighty-seven years and is among the best-known problems in the
+subject.  On 19~July 2026 Levent Alp\"oge announced an explicit
+counterexample in dimension three, found with the assistance of
+Anthropic's Claude~Fable~5 model after Akhil Mathew proposed the
+search~\cite{alpoge-jacobian,newscientist-jacobian}.  Because the
+witness is a handful of polynomial evaluations it was independently
+checked by many mathematicians within a
+day~\cite{newscientist-jacobian,sbseminar-jacobian}, and T.~Tao
+related it to the classical degree reductions of
+Bass--Connell--Wright~\cite{bass-connell-wright} and
+Yagzhev~\cite{yagzhev1980}.
+
+This is precisely the situation M2Lean is built for, and it exercises
+the skeptic's contract of \S\ref{sec:intro} at full strength: the
+bridge does not care who---or what---produced the map, nor how.  The
+assertion that it \emph{is} a counterexample splits into two exact,
+independently re-verifiable facts: a nonzero-constant Jacobian
+determinant (a polynomial identity) and a failure of injectivity (a
+finite collision of rational points).  Provenance never enters; what
+\lean{} certifies rests on its kernel alone.  The map is
+\begin{align*}
+F(x,y,z)=\bigl(~\!& (1+xy)^3 z + y^2 (1+xy)(4+3xy),\\
+                 & y + 3x(1+xy)^2 z + 3x y^2 (4+3xy),\\
+                 & 2x - 3x^2 y - x^3 z ~\!\bigr).
+\end{align*}
+
+\paragraph{Step 1: the hypothesis holds (\M{}).}
+\M{} forms the Jacobian and watches its determinant collapse to a
+constant---the conjecture's hypothesis, satisfied:
+\begin{lstlisting}[style=m2style]
+R = QQ[x,y,z];
+F = {(1+x*y)^3*z + y^2*(1+x*y)*(4+3*x*y),
+     y + 3*x*(1+x*y)^2*z + 3*x*y^2*(4+3*x*y),
+     2*x - 3*x^2*y - x^3*z};
+Jac = matrix table(3,3,(i,j) -> diff({x,y,z}#j, F#i));
+assert(det Jac == -2);              -- nonzero constant Jacobian
+polynomialIdentityClaim(D, "detJac", det Jac, -2_R);
+\end{lstlisting}
+
+\paragraph{Step 2: the conclusion fails (\M{}).}
+The three distinct points $P_0=(0,0,-\tfrac14)$,
+$P_1=(1,-\tfrac32,\tfrac{13}2)$, and $P_2=(-1,\tfrac32,\tfrac{13}2)$
+all map to $(-\tfrac14,0,0)$, so $F$ is not injective and has no
+inverse of any kind.  Each component value $F_i(P)=v_i$ is exported as
+a membership in the point's maximal ideal
+$\mathfrak m_P=(x-a,\,y-b,\,z-c)$: the cofactor identity
+$F_i-v_i = A\,(x-a)+B\,(y-b)+C\,(z-c)$, evaluated at $P$, kills the
+ideal part and forces $F_i(P)=v_i$.  Nine such membership claims
+(three points $\times$ three coordinates) together with the
+determinant identity form a $12.4$\,kB document; \code{m2lean-check}
+reports all ten claims \proved{}.
+
+\paragraph{Step 3: the theorem (\lean{}).}
+\lean{} re-checks the nine certificates in its kernel, proves the
+Jacobian determinant constant directly over \mathlib{}'s
+\code{MvPolynomial} via \code{pderiv}, and assembles the refutation
+(verbatim from the repository):
+\begin{lstlisting}[style=leanstyle]
+theorem jacF_det : jacF.det = -2         -- the hypothesis, in mathlib
+
+theorem F_not_injective :                -- the conclusion: F is not injective
+    ¬ Function.Injective (fun p : Fin 3 → ℚ => fun i => aeval p (F i))
+
+theorem jacobian_conjecture_false : ¬ JacobianConjecture 3
+\end{lstlisting}
+Here \code{JacobianConjecture n} is the injective formulation over
+$\QQ$---if the Jacobian determinant is a nonzero constant, the induced
+self-map of $\QQ^n$ is injective---so refuting even injectivity is the
+strongest possible counterexample.  The non-injectivity half is \M{}'s
+discovery, and the asymmetry of \S\ref{sec:intro} is stark: \lean{} was
+never asked to \emph{search} for the colliding points---the hard
+part---and need only \emph{check} that they collide, which its kernel
+does in a handful of evaluations.  \M{}'s nine membership certificates
+are the evidence that crosses the bridge: \code{m2lean-check} accepts
+them, and the theorem file re-checks them in the kernel
+(\code{certificate\_checks}) and promotes them to genuine
+ideal-membership propositions through the membership soundness theorem
+(\code{collision\_certified}, \S\ref{sec:lean}).  As with the
+flagship, an axiom audit confirms \code{jacobian\_conjecture\_false}
+and its lemmas depend on exactly \lean{}'s three standard axioms---no
+\code{sorry}, no project-specific axioms, no \code{native\_decide}.
+The plane case $n=2$ remains open; the counterexample extends to every
+$n\ge 3$ by adjoining identity coordinates.  We take no view on the
+mathematics beyond what we re-derived: the point is that a claimed
+counterexample of real consequence became, through the bridge, a
+kernel-checked \lean{} theorem in an afternoon, its correctness
+resting on nothing but \lean{}'s kernel.
+
+\section{Certifying nonexistence: graph colouring}\label{sec:coloring}
+
+The examples so far certify that something \emph{holds}.  A certificate
+can equally prove that something is \emph{impossible}, and graph
+colouring is the sharpest illustration.  Fix a graph $G$ and three
+colours.  Following De Loera--Lee--Malkin--Margulies~\cite{nulla},
+encode a colouring algebraically: one variable $x_v$ per vertex, a
+vertex relation $x_v^3-1$ (``the colour is a cube root of unity''), and
+for each edge an edge relation
+$x_u^2+x_ux_v+x_v^2 = (x_u^3-x_v^3)/(x_u-x_v)$ (``adjacent colours
+differ'').  A proper $3$-colouring is exactly a common zero of these
+polynomials, so
+\[
+  G \text{ is $3$-colourable} \iff 1 \notin \mathrm{col}(G),
+\]
+and a Nullstellensatz certificate $1 = \sum_i c_i g_i$ is a proof of
+\emph{non}-colourability.
+
+\paragraph{A clean contrast with \mathlib{}.}
+\mathlib{} already contains Alon's \emph{Combinatorial
+Nullstellensatz}~\cite{alon-cn}
+(\code{Mathlib.Combinatorics.Nullstellensatz}), the top-coefficient
+nonvanishing criterion that is the standard algebraic tool for proving
+that colourings (and many other combinatorial objects) \emph{exist}; it
+has no counterpart for proving that they do not.  M2Lean supplies exactly that
+missing direction and lands on the same named predicate: from \M{}'s
+certificate, \lean{} concludes \code{¬ SimpleGraph.Colorable G 3}.  The
+two are complementary---existence by non-vanishing, nonexistence by
+ideal membership.
+
+\paragraph{Encoding correctness (\lean{}).}
+This bridge does more than re-check arithmetic: it must connect the
+ideal membership to the combinatorial predicate.  \lean{} proves, once
+and generically, that a proper $3$-colouring $c$ furnishes the common
+zero $x_v = \zeta^{c(v)}$ (with $\zeta$ a primitive cube root of unity
+in $\CC$) of every generator---a vertex relation vanishes because
+$(\zeta^{c(v)})^3=1$, an edge relation because
+$\zeta^{3c(u)}=\zeta^{3c(v)}=1$ while $\zeta^{c(u)}\ne\zeta^{c(v)}$.
+Feeding this zero to \code{no\_common\_zero} against \M{}'s
+kernel-checked certificate is a contradiction, yielding (verbatim):
+\begin{lstlisting}[style=leanstyle]
+theorem wheel5_not_three_colorable : ¬ W.Colorable 3
+\end{lstlisting}
+for the odd wheel $W_5$, with an axiom audit confirming \lean{}'s three
+standard axioms and no \code{sorry}.
+
+\paragraph{Finding is hard; checking stays easy---quantitatively.}
+Deciding $3$-colourability is \textsf{NP}-complete, and the
+Nullstellensatz certificate grows with the instance; yet every
+certificate is checked by the same trivial polynomial arithmetic.  The
+table makes the asymmetry concrete, from the clique $K_4$ to the
+\emph{Gr\"otzsch graph}---the Mycielskian of the $5$-cycle~\cite{mycielski},
+the smallest triangle-free graph that is not $3$-colourable, where no
+clique forces the fourth colour so the obstruction is genuinely global:
+\begin{center}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+graph & vertices & edges & certificate (kB) & check (ms) \\
+\midrule
+$K_4$ (clique)             & 4  & 6  & 4.5 & 31 \\
+$W_5$ (odd wheel)          & 6  & 10 & 8.0 & 32 \\
+Gr\"otzsch (triangle-free) & 11 & 20 & 112 & 772 \\
+\bottomrule
+\end{tabular}
+\end{center}
+The witness grows $25\times$; verification stays under a second.  The
+Gr\"otzsch certificate is verified by \code{m2lean-check}
+(\code{examples/coloring/}); $W_5$ additionally carries the full
+kernel-checked \lean{} theorem above.
+
 \section{Adversarial evaluation}\label{sec:experiments}
 
 The acceptance criterion that matters most for a bridge is not that
 honest certificates pass but that dishonest ones fail.  The test
-suite (\code{scripts/run-checks.sh}) exercises both directions;
-the corrupted certificates are obtained by \emph{mutating real \M{}
+suite (\code{scripts/run-checks.sh}) exercises both directions over
+fourteen valid documents (eleven \M{}-generated, including the Jacobian
+counterexample of \S\ref{sec:jacobian}, the colouring certificates of
+\S\ref{sec:coloring}, and the cross-area examples of
+Appendix~\ref{app:more}) and eight corrupted or malformed ones; the
+corrupted certificates are obtained by \emph{mutating real \M{}
 output}, not by constructing strawmen:
 
 \begin{center}
@@ -973,8 +1177,7 @@ output}, not by constructing strawmen:
 \toprule
 document & defect & outcome \\
 \midrule
-11 valid docs (8 \M{}-generated, incl.\ App.~\ref{app:more}) & --- & all
-\textcolor{okgreen}{accepted} \\
+14 valid documents & --- & all \textcolor{okgreen}{accepted} \\
 \code{corrupt-membership} & wrong cofactor & \textcolor{badred}{rejected} (verification) \\
 \code{corrupt-gb-quotient} & S-pair quotient scaled by 2 & \textcolor{badred}{rejected} (verification) \\
 \code{corrupt-gb-missing-spair} & required S-pair deleted & \textcolor{badred}{rejected} (verification) \\
@@ -999,6 +1202,7 @@ median of three runs):
 document & claims & size (kB) & verification (ms) \\
 \midrule
 \code{flagship} (unit ideal, GB, non-mem., resolution) & 5 & 5.3 & 33 \\
+\code{jacobian} (Jacobian det.\ $+$ 9 collision certificates) & 10 & 12.4 & 34 \\
 \code{coloring} ($K_4$ Nullstellensatz witness) & 1 & 4.5 & 32 \\
 \code{polynomial} (identity, membership, span $\times 2$) & 4 & 2.5 & 31 \\
 \code{primefield} (GB, membership, non-mem.\ over $\mathbb{F}_{101}$) & 3 & 2.3 & 34 \\
@@ -1007,6 +1211,7 @@ document & claims & size (kB) & verification (ms) \\
 \end{tabular}
 \end{center}
 
+{\sloppy
 Verification wall time is dominated by process startup --- the
 checking itself is sub-millisecond at this scale --- and generating
 \emph{all} documents with \M{} takes under a second
@@ -1015,14 +1220,16 @@ expensive tier, and still cheap: within a warm build, elaborating the
 Galois theorem file (certificate check plus the transfer to
 \code{Polynomial.Separable}) takes $2.9$\,s, and the flagship file
 (two kernel certificate checks plus the interpretation lemmas)
-$5.6$\,s.  At this scale, certificates are the same order of
+$5.6$\,s; and the Jacobian file (nine kernel certificate checks, the
+determinant computation over \code{MvPolynomial}, and the soundness
+transfer) $4.3$\,s.  At this scale, certificates are the same order of
 magnitude as the answers they certify; how they grow is a limitation
 discussed in \S\ref{sec:roadmap}.  The whole pipeline runs in
 continuous integration on every push: a GitHub Actions job installs
 \M{} and \lean{}, rebuilds the library (including the
 \code{by macaulay2} demo, which spawns a live \M{} process during
-elaboration), regenerates all documents, replays the 19
-accept/reject checks, and greps the axiom audit.
+elaboration), regenerates all documents, replays the 22
+accept/reject checks, and greps the axiom audit.\par}
 
 \section{What each system gains}\label{sec:gains}
 
@@ -1285,10 +1492,11 @@ chainComplexClaim(D, "koszulcx", {C.dd_1, C.dd_2});
   \xrightarrow{\;(ac\;\; bd)\;} R \to R/I \to 0 .
 \]
 
+{\sloppy
 \verdictline{\proved{} / \checked}{$d_1 d_2 = 0$ as a \mathlib{}
 \code{Matrix} identity (\code{checkComplexPair\_sound}, \proved);
 homogeneity of every entry for the displayed twists---hence the Betti
-table $1,2,1$---is verified at level \checked.}
+table $1,2,1$---is verified at level \checked.}\par}
 
 \subsection*{B.6\quad Finite fields: the same machinery over $\mathbb{F}_{101}$}
 

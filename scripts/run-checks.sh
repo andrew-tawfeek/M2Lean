@@ -12,6 +12,7 @@ fail=0
 
 if [ "${SKIP_M2:-0}" != "1" ]; then
   for s in examples/polynomial/polynomial.m2 examples/flagship/flagship.m2 \
+           examples/jacobian/jacobian.m2 examples/coloring/coloring.m2 \
            examples/appendix/appendix.m2; do
     echo "--- M2 $s"
     M2 --script "$s" || { echo "M2 FAILED: $s"; fail=1; }
@@ -33,6 +34,7 @@ expect() { # expect <accepted|rejected> <file>
 
 for f in protocol/fixtures/valid/*.json; do expect accepted "$f"; done
 for f in examples/polynomial/polynomial.json examples/flagship/flagship.json \
+         examples/jacobian/jacobian.json examples/coloring/*.json \
          examples/appendix/*.json; do
   expect accepted "$f"
 done

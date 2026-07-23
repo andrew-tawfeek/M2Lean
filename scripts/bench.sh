@@ -11,12 +11,22 @@ M2 --script examples/flagship/flagship.m2 > /dev/null
 t1=$(date +%s%N)
 echo "flagship.m2 generate_ms=$(( (t1-t0)/1000000 ))"
 t0=$(date +%s%N)
+M2 --script examples/jacobian/jacobian.m2 > /dev/null
+t1=$(date +%s%N)
+echo "jacobian.m2 generate_ms=$(( (t1-t0)/1000000 ))"
+t0=$(date +%s%N)
+M2 --script examples/coloring/coloring.m2 > /dev/null
+t1=$(date +%s%N)
+echo "coloring.m2 (2 docs) generate_ms=$(( (t1-t0)/1000000 ))"
+t0=$(date +%s%N)
 M2 --script examples/appendix/appendix.m2 > /dev/null
 t1=$(date +%s%N)
 echo "appendix.m2 (6 docs) generate_ms=$(( (t1-t0)/1000000 ))"
 
 echo "== verification =="
-for f in examples/flagship/flagship.json examples/appendix/primefield.json \
+for f in examples/flagship/flagship.json examples/jacobian/jacobian.json \
+         examples/coloring/grotzsch.json examples/coloring/wheel5.json \
+         examples/appendix/primefield.json \
          examples/appendix/coloring.json examples/polynomial/polynomial.json \
          examples/appendix/galois.json examples/appendix/toric.json \
          examples/appendix/stanley-reisner.json examples/appendix/symmetric.json; do

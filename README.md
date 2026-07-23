@@ -50,6 +50,75 @@ Buchberger's criterion in standard-representation form and the
 degree-reverse-lexicographic `MonomialOrder`, both stated against
 mathlib's own theory.
 
+## Highlighted example: the Jacobian-conjecture counterexample
+
+The [Jacobian conjecture](https://en.wikipedia.org/wiki/Jacobian_conjecture)
+(Keller, 1939) — open for every `n ≥ 2` for 87 years — asserts that a
+polynomial map `F : ℂⁿ → ℂⁿ` whose Jacobian determinant is a nonzero
+constant has a polynomial inverse. On **19 July 2026**, Levent Alpöge
+announced an explicit dimension-three counterexample, found with the
+assistance of Anthropic's *Claude Fable 5* model after Akhil Mathew
+proposed the search; because the witness is a handful of polynomial
+evaluations, it was independently checked by many mathematicians within
+a day ([New Scientist](https://www.newscientist.com/article/2580374-ais-solution-to-87-year-old-riddle-takes-mathematicians-by-surprise/),
+[Secret Blogging Seminar](https://sbseminar.wordpress.com/2026/07/20/the-new-counterexample-to-the-jacobian-conjecture/)),
+and Terence Tao related it to the Bass–Connell–Wright and Yagzhev
+reductions.
+
+M2Lean neither trusts nor relies on that provenance — the object is a
+self-contained algebraic fact, re-verified end to end with **no `sorry`
+and only Lean's three standard axioms**:
+
+```
+F(x,y,z) = ( (1+xy)³·z + y²(1+xy)(4+3xy),
+             y + 3x(1+xy)²·z + 3xy²(4+3xy),
+             2x − 3x²y − x³·z )
+```
+
+- **Macaulay2** ([`examples/jacobian/jacobian.m2`](examples/jacobian/jacobian.m2))
+  forms the Jacobian and sees its determinant collapse to the constant
+  `−2` (the conjecture's *hypothesis*), then certifies that the three
+  distinct points `(0,0,−¼)`, `(1,−³⁄₂,¹³⁄₂)`, `(−1,³⁄₂,¹³⁄₂)` all map to
+  `(−¼,0,0)` (the *conclusion*, non-injectivity). It exports this as a
+  10-claim protocol document, every claim `proved`.
+- **Lean** ([`lean/M2Lean/Examples/Jacobian.lean`](lean/M2Lean/Examples/Jacobian.lean))
+  re-checks the nine collision certificates in its kernel, proves
+  `det (Jacobian F) = −2` directly over mathlib's `MvPolynomial`, and
+  concludes:
+
+  ```lean
+  theorem jacobian_conjecture_false : ¬ JacobianConjecture 3
+  ```
+
+Non-injectivity is the strongest possible refutation (an injective map
+would be the weakest conclusion), so the Jacobian conjecture *as stated*
+is false in dimension three — and, by adjoining identity coordinates, in
+every dimension `≥ 3`. The plane case `n = 2` remains open.
+
+## Also certified: graph non-3-colorability (nonexistence via Nullstellensatz)
+
+A certificate can prove something is *impossible*, too. Encode a
+3-coloring of a graph `G` algebraically (one variable per vertex, colors
+= cube roots of unity via `x_v³ − 1`, adjacent vertices differ via
+`x_u² + x_u x_v + x_v²`); then `G` is 3-colorable **iff**
+`1 ∉ coloringIdeal(G)`, so a Nullstellensatz certificate `1 = Σ cᵢ gᵢ`
+is a *proof of non-colorability*. This is the infeasibility counterpart
+to mathlib's existing Combinatorial Nullstellensatz (Alon) — the standard
+non-vanishing criterion for proving combinatorial objects like colorings
+*exist* — landing on the same `SimpleGraph.Colorable` predicate.
+
+- **Macaulay2** ([`examples/coloring/`](examples/coloring/)) finds the
+  certificate; **Lean** ([`Coloring.lean`](lean/M2Lean/Examples/Coloring.lean))
+  kernel-checks it and, via an encoding-correctness lemma (a proper
+  coloring would give a common zero `x_v = ζ^{c(v)}` over ℂ), proves
+  `theorem wheel5_not_three_colorable : ¬ W.Colorable 3` — no `sorry`,
+  only the three standard axioms.
+- The certificate **grows with the graph** while checking stays trivial:
+  `K₄` (4.5 kB) → odd wheel `W₅` (8 kB) → the **Grötzsch graph** (112 kB
+  — the smallest triangle-free non-3-colorable graph, where no clique
+  forces the fourth color), each verified by `m2lean-check` in under a
+  second.
+
 The remainder of this file is the founding vision document.
 
 # Founding exchange
