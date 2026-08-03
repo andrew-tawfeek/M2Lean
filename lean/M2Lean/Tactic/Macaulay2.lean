@@ -19,8 +19,8 @@ Discharges goals of the form
 Trust: exactly as everywhere else in M2Lean, the M2 output is
 untrusted; a wrong or corrupted answer makes the final `decide` proof
 fail, never a false theorem.  Requires `M2` on `PATH` and the
-`M2LEAN_HOME` environment variable (or `../M2Lean`) pointing at the
-repository root for `m2/M2Lean.m2`.
+`M2LEAN_HOME` environment variable pointing at the repository root, or a
+Lake dependency checkout containing `m2/M2Lean.m2`.
 -/
 import Mathlib
 import M2Lean.Certificates.Soundness
@@ -89,12 +89,34 @@ private def m2Script (pkg : String) (n : ℕ) (f : SPoly ℚ)
     s!"writeM2LeanDocument(D, \"{out}\");",
     ""]
 
+private def parentN : Nat → System.FilePath → Option System.FilePath
+  | 0, path => some path
+  | n + 1, path => path.parent.bind (parentN n)
+
+/-- Locate the Macaulay2 package in either the source checkout selected by
+`M2LEAN_HOME` or this package's own Lake dependency checkout.  A compiled Lean
+module lives below `<package>/.lake/build/lib/lean`, so entries in `LEAN_PATH`
+provide a stable, package-manager-independent route back to the package root. -/
+private def findM2Package : TacticM String := do
+  let explicitRoots :=
+    match ← IO.getEnv "M2LEAN_HOME" with
+    | some home => [System.FilePath.mk home]
+    | none => []
+  let dependencyRoots :=
+    match ← IO.getEnv "LEAN_PATH" with
+    | some path => (System.SearchPath.parse path).filterMap (parentN 4)
+    | none => []
+  for root in explicitRoots ++ dependencyRoots do
+    let packageFile := root / "m2" / "M2Lean.m2"
+    if ← packageFile.pathExists then
+      return packageFile.toString
+  throwError "macaulay2: cannot locate m2/M2Lean.m2; set M2LEAN_HOME to the M2Lean package root"
+
 /-- Ask Macaulay2 for membership cofactors; returns them as parsed
 sparse polynomials. -/
 private def askMacaulay2 (n : ℕ) (f : SPoly ℚ) (gs : List (SPoly ℚ)) :
     TacticM (List (SPoly ℚ)) := do
-  let home := (← IO.getEnv "M2LEAN_HOME").getD "../M2Lean"
-  let pkg := s!"{home}/m2/M2Lean.m2"
+  let pkg ← findM2Package
   let dir ← IO.Process.run { cmd := "mktemp", args := #["-d"] }
   let dir := dir.trimAscii.copy
   let scriptPath := s!"{dir}/request.m2"

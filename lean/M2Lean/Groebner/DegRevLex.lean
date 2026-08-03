@@ -71,6 +71,7 @@ noncomputable def key (f : DegRevLex (σ →₀ ℕ)) :
     ℕ ×ₗ (Colex (σ →₀ ℕ))ᵒᵈ :=
   toLex ((ofDegRevLex f).degree, toDual (toColex (ofDegRevLex f)))
 
+omit [LinearOrder σ] in
 theorem key_injective : Function.Injective (key (σ := σ)) := by
   intro f g h
   have := congrArg (fun p => ofColex (ofDual (ofLex p).2)) h
@@ -114,6 +115,7 @@ theorem degree_monotone :
   · exact le_of_lt h
   · exact le_of_eq h.1
 
+omit [LinearOrder σ] in
 /-- Over a finite index type there are only finitely many exponent
 vectors of bounded degree. -/
 theorem finite_degree_le [Finite σ] (D : ℕ) :

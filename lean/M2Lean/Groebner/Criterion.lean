@@ -179,7 +179,7 @@ strictly below `δ`. -/
 
 theorem comboF_smul (e : k) (c : Fin nb → MvPolynomial σ k) :
     comboF b (e • c) = e • comboF b c := by
-  simp [comboF, Finset.smul_sum, smul_mul_assoc]
+  simp [comboF, Finset.smul_sum]
 
 theorem comboF_mulLeft (q : MvPolynomial σ k) (c : Fin nb → MvPolynomial σ k) :
     comboF b (fun t => q * c t) = q * comboF b c := by
@@ -426,7 +426,7 @@ theorem buchberger_criterion
     refine ⟨i, ?_⟩
     rw [hi]
     exact _root_.zero_le
-  push_neg at hconst
+  push Not at hconst
   -- choose a representation with minimal top product degree
   obtain ⟨c0, hc0⟩ := exists_rep b hf
   set RD : Set m.syn := {d | ∃ c, comboF b c = f ∧ repDeg m b c = d} with hRD
@@ -442,7 +442,7 @@ theorem buchberger_criterion
     have h1 : f.coeff d ≠ 0 := m.coeff_degree_ne_zero_iff.mpr hf0
     have h3 : ∃ i, (c i * b i).coeff d ≠ 0 := by
       by_contra hall
-      push_neg at hall
+      push Not at hall
       apply h1
       have hh : f.coeff d = ∑ i, (c i * b i).coeff d := by
         conv_lhs => rw [← hcf]
@@ -499,7 +499,7 @@ theorem buchberger_criterion
         rw [hT]
         refine (Finset.sum_filter_of_ne fun i _ hne => ?_).symm
         by_contra hnot
-        push_neg at hnot
+        push Not at hnot
         rcases Decidable.em (c i * b i = 0) with hz | hz
         · exact hne (by rw [hz]; simp)
         · refine hne ?_
@@ -557,7 +557,7 @@ theorem buchberger_criterion
                 add_lt_add_of_lt_of_le hstrict le_rfl
             _ = m.toSyn δ' := by rw [← map_add, hadd]
       · rw [hc'']
-        simp only [hiT, if_neg, ite_false]
+        simp only [hiT, ite_false]
         by_cases hz : c i * b i = 0
         · exact Or.inr hz
         · left

@@ -80,6 +80,7 @@ theorem zipAdd_length (as bs : List ℕ) :
       simp [zipAdd, ih]
       try omega
 
+omit [DecidableEq α] in
 theorem arityLe_mulRaw {p q : SPoly α} (hp : arityLe n p = true)
     (hq : arityLe n q = true) : arityLe n (mulRaw p q) = true := by
   rw [arityLe, List.all_eq_true]
@@ -114,6 +115,7 @@ noncomputable def basisFun (basis : List (SPoly α)) :
     Fin basis.length → MvPolynomial (Fin n) α :=
   fun i => toMv n basis[(i : ℕ)]
 
+omit [DecidableEq α] in
 theorem spanOf_eq_range (basis : List (SPoly α)) :
     spanOf n basis = Ideal.span (Set.range (basisFun n basis)) := by
   unfold spanOf basisFun
@@ -269,7 +271,8 @@ theorem checkGroebner_sound {gens basis : List (SPoly α)}
         have htq : (t : ℕ) < sp.quotients.length := by rw [hqlen]; exact t.isLt
         have htzip : (t : ℕ) < (List.zip sp.quotients basis).length := by
           rw [List.length_zip, hqlen]
-          simpa using t.isLt
+          rw [min_self]
+          exact t.isLt
         have hmem : (sp.quotients[(t : ℕ)]'htq, basis[(t : ℕ)]) ∈
             List.zip sp.quotients basis := by
           rw [List.mem_iff_getElem]
@@ -293,7 +296,6 @@ theorem checkGroebner_sound {gens basis : List (SPoly α)}
           rw [hzero, (grevlexOrder n).degree_zero, map_zero]
           exact (grevlexOrder n).zero_le _
         · -- product nonzero: both leads exist, compare
-          simp only [leadTerm?] at hbound
           rw [hln, List.head?_cons] at hbound
           rcases hlnS : normalizeBy (α := α) .grevlex S with _ | ⟨ts, restS⟩
           · rw [hlnS] at hbound
@@ -315,7 +317,7 @@ theorem checkGroebner_sound {gens basis : List (SPoly α)}
               exact this (List.mem_cons_self ..)
             have hle : toDegRevLex (toMon n tp.exps) ≤ toDegRevLex (toMon n ts.exps) := by
               by_contra hgt
-              push_neg at hgt
+              push Not at hgt
               exact hcmp ((cmpGRevLex_gt_iff n harp' harS').mpr hgt)
             rw [hdp, ← hSmv, hdS]
             exact hle

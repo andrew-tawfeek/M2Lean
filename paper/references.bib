@@ -1,8 +1,8 @@
 @misc{M2,
   author = {Grayson, Daniel R. and Stillman, Michael E.},
   title = {Macaulay2, a software system for research in algebraic geometry},
-  howpublished = {Available at \url{http://www2.macaulay2.com}},
-  year = {2024}
+  howpublished = {Version 1.24.11, \url{https://www.macaulay2.com}},
+  year = {2026}
 }
 
 @inproceedings{lean4,
@@ -25,6 +25,39 @@
   year = {2020}
 }
 
+@article{lewis-wu,
+  author = {Lewis, Robert Y. and Wu, Minchao},
+  title = {A Bi-Directional Extensible Interface Between {Lean} and {Mathematica}},
+  journal = {Journal of Automated Reasoning},
+  volume = {66},
+  number = {2},
+  pages = {215--238},
+  year = {2022},
+  doi = {10.1007/s10817-021-09611-1}
+}
+
+@misc{guo-groebner-lean,
+  author = {Guo, Junyu and Shen, Hao and Liu, Junqi and Zhi, Lihong},
+  title = {Formalizing {Gr\"obner} Basis Theory in {Lean}},
+  year = {2026},
+  eprint = {2602.12772},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.LO},
+  howpublished = {arXiv:2602.12772, \url{https://arxiv.org/abs/2602.12772}},
+  doi = {10.48550/arXiv.2602.12772}
+}
+
+@misc{shen-polynomial-tactics,
+  author = {Shen, Hao and Guo, Junyu and Liu, Junqi and Zhi, Lihong},
+  title = {Automated Tactics for Polynomial Reasoning in {Lean} 4},
+  year = {2026},
+  eprint = {2604.13514},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.LO},
+  howpublished = {arXiv:2604.13514, \url{https://arxiv.org/abs/2604.13514}},
+  doi = {10.48550/arXiv.2604.13514}
+}
+
 @article{harrison-thery,
   author = {Harrison, John and Th{\'e}ry, Laurent},
   title = {A Skeptic's Approach to Combining {HOL} and {Maple}},
@@ -35,10 +68,10 @@
   year = {1998}
 }
 
-@inproceedings{delahaye-mayero,
+@article{delahaye-mayero,
   author = {Delahaye, David and Mayero, Micaela},
   title = {Dealing with Algebraic Expressions over a Field in {Coq} using {Maple}},
-  booktitle = {Journal of Symbolic Computation},
+  journal = {Journal of Symbolic Computation},
   volume = {39},
   number = {5},
   pages = {569--592},
@@ -124,20 +157,24 @@
   year = {1962}
 }
 
-@inproceedings{smt-certificates,
+@article{smt-certificates,
   author = {Barbosa, Haniel and Blanchette, Jasmin Christian and Fleury, Mathias and Fontaine, Pascal},
   title = {Scalable Fine-Grained Proofs for Formula Processing},
-  booktitle = {Journal of Automated Reasoning},
+  journal = {Journal of Automated Reasoning},
   volume = {64},
   pages = {485--510},
-  year = {2020}
+  year = {2020},
+  doi = {10.1007/s10817-018-09502-y}
 }
 
-@article{harrison-sos,
+@inproceedings{harrison-sos,
   author = {Harrison, John},
   title = {Verifying Nonlinear Real Formulas via Sums of Squares},
-  journal = {Theorem Proving in Higher Order Logics (TPHOLs 2007), LNCS 4732},
+  booktitle = {Theorem Proving in Higher Order Logics (TPHOLs 2007)},
+  series = {Lecture Notes in Computer Science},
+  volume = {4732},
   pages = {102--118},
+  publisher = {Springer},
   year = {2007}
 }
 
@@ -217,6 +254,18 @@
   year = {1982}
 }
 
+@inproceedings{mayr1989,
+  author = {Mayr, Ernst W.},
+  title = {Membership in Polynomial Ideals over $\mathbb{Q}$ Is Exponential Space Complete},
+  booktitle = {Proceedings of the 6th Annual Symposium on Theoretical Aspects of Computer Science (STACS 1989)},
+  series = {Lecture Notes in Computer Science},
+  volume = {349},
+  pages = {400--406},
+  publisher = {Springer},
+  year = {1989},
+  doi = {10.1007/BFb0029002}
+}
+
 @article{buchberger,
   author = {Buchberger, Bruno},
   title = {Ein algorithmisches {Kriterium} f{\"u}r die {L}{\"o}sbarkeit eines algebraischen {Gleichungssystems}},
@@ -243,7 +292,8 @@
   journal = {Monatshefte f{\"u}r Mathematik und Physik},
   volume = {47},
   pages = {299--306},
-  year = {1939}
+  year = {1939},
+  doi = {10.1007/BF01695502}
 }
 
 @article{bass-connell-wright,
@@ -268,10 +318,27 @@
 
 @misc{alpoge-jacobian,
   author = {Alp{\"o}ge, Levent},
-  title = {An explicit counterexample to the {Jacobian} conjecture in dimension three},
-  howpublished = {Announcement, \texttt{@\_\_alpoge\_\_}; reported in \cite{newscientist-jacobian}},
+  title = {An Explicit Counterexample to the {Jacobian} Conjecture in Dimension Three},
+  howpublished = {Announcement on X, \url{https://x.com/__alpoge__/status/2079028340955197566}},
   year = {2026},
-  note = {19 July 2026}
+  note = {20 July 2026}
+}
+
+@article{jacobian-afp,
+  author = {Ramos, Arthur Freitas and Hulak, David Barros and de Queiroz, Ruy Jose Guerra Barretto},
+  title = {Formal Verification of an Explicit Counterexample to the {Jacobian} Conjecture},
+  journal = {Archive of Formal Proofs},
+  year = {2026},
+  month = jul,
+  note = {Formal proof development, \url{https://isa-afp.org/entries/Jacobian_Counterexample.html}}
+}
+
+@misc{jacobian-lean-independent,
+  author = {Nogueira Grossi, Pablo},
+  title = {An Independent {Lean} 4 Verification of the {Alp\"oge--Fable} Counterexample},
+  howpublished = {Zenodo, \url{https://doi.org/10.5281/zenodo.21514514}},
+  year = {2026},
+  doi = {10.5281/zenodo.21514514}
 }
 
 @misc{newscientist-jacobian,

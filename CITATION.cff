@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+message: >-
+  If you use M2Lean, please cite this software record and the accompanying
+  paper when its architecture or case studies are relevant.
+type: software
+title: "M2Lean: certificate-based interoperability between Macaulay2 and Lean 4"
+version: 0.2.0
+date-released: 2026-08-03
+authors:
+  - family-names: Tawfeek
+    given-names: Andrew
+    email: atawfeek.math@gmail.com
+repository-code: "https://github.com/andrew-tawfeek/M2Lean"
+url: "https://github.com/andrew-tawfeek/M2Lean"
+license: MIT
+keywords:
+  - Macaulay2
+  - Lean
+  - formal verification
+  - computer algebra
+  - certificates
+  - Gröbner bases
+abstract: >-
+  M2Lean transports explicit evidence from untrusted Macaulay2 computations
+  to executable Lean checkers and, for selected claim families, to
+  kernel-checked mathematical theorems.
+preferred-citation:
+  type: article
+  title: "M2Lean: Certificate-Based Interoperability Between Macaulay2 and Lean 4"
+  authors:
+    - family-names: Tawfeek
+      given-names: Andrew
+  year: 2026
+  month: 8

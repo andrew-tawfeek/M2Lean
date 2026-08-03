@@ -1,7 +1,7 @@
 -- M2Lean.m2 : Macaulay2 side of the M2Lean bridge.
 --
 -- Exports Macaulay2 objects and certificate-bearing claims as
--- M2Lean protocol documents (version 0.1.0, see protocol/SPEC.md).
+-- M2Lean protocol documents (version 0.2.0, see protocol/SPEC.md).
 -- Everything produced here is UNTRUSTED evidence: the Lean checkers
 -- re-verify all identities.  Consequently this package may use any
 -- convenient M2 machinery (internal Groebner bases, `//`) to
@@ -12,8 +12,11 @@
 newPackage(
     "M2Lean",
     Version => "0.2.0",
-    Date => "July 20, 2026",
-    Authors => {{Name => "Andrew Tawfeek"}},
+    Date => "August 3, 2026",
+    Authors => {{Name => "Andrew Tawfeek",
+                 Email => "atawfeek.math@gmail.com",
+                 HomePage => "https://github.com/andrew-tawfeek"}},
+    HomePage => "https://github.com/andrew-tawfeek/M2Lean",
     Headline => "export certificates for verification in Lean 4",
     Keywords => {"Interfaces"}
     )
@@ -108,18 +111,15 @@ orderName = R -> (
     names := for entry in toList mo list if instance(entry, Option) then toString entry#0 else toString entry;
     if member("GRevLex", names) then "GRevLex"
     else if member("Lex", names) then "Lex"
-    else error "M2Lean: only GRevLex and Lex orders are supported by protocol 0.1.0")
+    else error "M2Lean: only GRevLex and Lex orders are supported by protocol 0.2.0")
 
 exportRing = method()
 exportRing (M2LeanDocument, Ring) := (D, R) -> (
     if registered(D, R) then return idOf(D, R);
     K := coefficientRing R;
     kid := if registered(D, K) then idOf(D, K) else (
-        if K === QQ then addObject(D, K, freshId(D, "k"), jobj {("id", jstr "TBD")}) else null;
-        -- (re)build json with the actual id
         if K === QQ then (
-            D#"objects" = drop(D#"objects", -1);
-            kid' := D#"ids"#K;
+            kid' := freshId(D, "k");
             addObject(D, K, kid', jobj {("id", jstr kid'), ("kind", jstr "RationalField")}))
         else if isField K and char K > 0 then (
             kid'' := freshId(D, "k");
@@ -412,10 +412,359 @@ doc ///
 Key
   M2Lean
 Headline
-  export certificates for verification in Lean 4
+  export certificate documents for independent verification in Lean 4
 Description
   Text
     This package exports Macaulay2 computations, together with the
-    evidence needed to verify them independently, as M2Lean protocol
-    documents.  See protocol/SPEC.md in the M2Lean repository.
+    explicit evidence needed to verify them independently, as M2Lean
+    protocol 0.2.0 documents.  Macaulay2 and this package are untrusted
+    witness producers: only the Lean checkers and their formal soundness
+    theorems determine the reported assurance.
+  Text
+    The supported coefficient rings are QQ and prime fields.  Polynomial
+    rings must use Lex or GRevLex monomial order.
+  Example
+    R = QQ[x,y]
+    I = ideal(x+y,x-y)
+    D = newM2LeanDocument "documentation-example"
+    membershipClaim(D,"mem1",x^3+y^3,I)
+    assert(D =!= null)
+  Text
+    Use writeM2LeanDocument to retain the certificate or verifyWithLean to
+    invoke a previously built m2lean-check executable.  See protocol/SPEC.md
+    and docs/trust-model.md in the source repository for the normative format
+    and assurance boundaries.
+SeeAlso
+  newM2LeanDocument
+  writeM2LeanDocument
+  verifyWithLean
+Subnodes
+  newM2LeanDocument
+  exportRing
+  exportIdeal
+  exportMatrix
+  exportGradedFreeModule
+  jsonOfPolynomial
+  divisionAlgorithm
+  polynomialIdentityClaim
+  membershipClaim
+  unitIdealClaim
+  spanInclusionClaim
+  gbClaim
+  nonMembershipClaim
+  chainComplexClaim
+  gradedComplexClaim
+  writeM2LeanDocument
+  verifyWithLean
+///
+
+doc ///
+Key
+  newM2LeanDocument
+  (newM2LeanDocument,String)
+Headline
+  create an M2Lean protocol document builder
+Usage
+  D = newM2LeanDocument id
+Inputs
+  id:String
+    a stable identifier for the document
+Outputs
+  D:M2LeanDocument
+Description
+  Text
+    The builder accumulates exported objects and claims in dependency order.
+    It has no assurance until it is serialized and independently checked.
+SeeAlso
+  writeM2LeanDocument
+///
+
+doc ///
+Key
+  exportRing
+  (exportRing,M2LeanDocument,Ring)
+Headline
+  export a supported polynomial ring
+Usage
+  id = exportRing(D,R)
+Inputs
+  D:M2LeanDocument
+  R:Ring
+Outputs
+  id:String
+Description
+  Text
+    Exports the coefficient field, variable display names, and declared Lex
+    or GRevLex order.  Repeated export of the same ring returns its existing
+    protocol identifier.
+///
+
+doc ///
+Key
+  exportIdeal
+  (exportIdeal,M2LeanDocument,Ideal)
+Headline
+  export an ideal and its ordered generators
+Usage
+  id = exportIdeal(D,I)
+Inputs
+  D:M2LeanDocument
+  I:Ideal
+Outputs
+  id:String
+Description
+  Text
+    The ideal's ring is exported first.  Generator order is part of the
+    certificate representation because cofactor vectors are positional.
+///
+
+doc ///
+Key
+  exportMatrix
+  (exportMatrix,M2LeanDocument,Matrix)
+Headline
+  export a polynomial matrix
+Usage
+  id = exportMatrix(D,M)
+Inputs
+  D:M2LeanDocument
+  M:Matrix
+Outputs
+  id:String
+Description
+  Text
+    Exports dimensions and entries in row-major order after exporting the
+    coefficient polynomial ring.
+///
+
+doc ///
+Key
+  exportGradedFreeModule
+  (exportGradedFreeModule,M2LeanDocument,Ring,List)
+Headline
+  export a graded free module from generator degrees
+Usage
+  id = exportGradedFreeModule(D,R,degrees)
+Inputs
+  D:M2LeanDocument
+  R:Ring
+  degrees:List
+    one integer degree for each free generator
+Outputs
+  id:String
+Description
+  Text
+    Each call creates a distinct protocol object, even when another exported
+    module has the same degree list.
+///
+
+doc ///
+Key
+  jsonOfPolynomial
+Headline
+  encode a polynomial in canonical protocol form
+Usage
+  s = jsonOfPolynomial f
+Inputs
+  f:RingElement
+Outputs
+  s:String
+Description
+  Text
+    Returns the JSON fragment for a canonical sparse polynomial in the ring's
+    declared order.  Mathematical integers are represented as strings.
+///
+
+doc ///
+Key
+  divisionAlgorithm
+  (divisionAlgorithm,RingElement,List)
+Headline
+  divide by an ordered polynomial list with standard-representation bounds
+Usage
+  (quotients,remainder) = divisionAlgorithm(f,basis)
+Inputs
+  f:RingElement
+  basis:List
+Outputs
+  quotients:List
+  remainder:RingElement
+Description
+  Text
+    Returns f = sum_i quotients_i*basis_i + remainder.  No remainder term is
+    divisible by a leading term of basis, and every subtraction follows the
+    declared monomial order.  This is evidence generation, not a trusted
+    decision procedure.
+///
+
+doc ///
+Key
+  polynomialIdentityClaim
+  (polynomialIdentityClaim,M2LeanDocument,String,RingElement,RingElement)
+Headline
+  add a polynomial-identity claim
+Usage
+  polynomialIdentityClaim(D,id,lhs,rhs)
+Description
+  Text
+    Adds a claim that lhs and rhs denote the same polynomial.  The Lean
+    consumer checks canonical equality and has a kernel-checked soundness
+    theorem for accepted claims.
+///
+
+doc ///
+Key
+  membershipClaim
+  (membershipClaim,M2LeanDocument,String,RingElement,Ideal)
+Headline
+  add an ideal-membership claim with cofactors
+Usage
+  membershipClaim(D,id,f,I)
+Description
+  Text
+    Computes cofactors expressing f as a linear combination of the ordered
+    generators of I.  It raises an error when f is not in I.
+///
+
+doc ///
+Key
+  unitIdealClaim
+  (unitIdealClaim,M2LeanDocument,String,Ideal)
+Headline
+  add a certificate that an ideal contains one
+Usage
+  unitIdealClaim(D,id,I)
+Description
+  Text
+    A convenience wrapper around membershipClaim for the element 1.
+///
+
+doc ///
+Key
+  spanInclusionClaim
+  (spanInclusionClaim,M2LeanDocument,String,Ideal,Ideal)
+Headline
+  add an inclusion claim between generated ideals
+Usage
+  spanInclusionClaim(D,id,source,target)
+Description
+  Text
+    Supplies a cofactor row expressing every source generator in the target
+    generators.  The checker establishes only the stated inclusion.
+///
+
+doc ///
+Key
+  gbClaim
+  (gbClaim,M2LeanDocument,String,Ideal)
+Headline
+  add a Gröbner-basis claim with complete Buchberger evidence
+Usage
+  gbClaim(D,id,I)
+Description
+  Text
+    Exports a basis, both change-of-generator directions, and a standard
+    representation for every pair of distinct basis elements.  GRevLex
+    acceptance has kernel-checked soundness in M2Lean 0.2.0; Lex acceptance is
+    executable-only until its formal order bridge is completed.
+///
+
+doc ///
+Key
+  nonMembershipClaim
+  (nonMembershipClaim,M2LeanDocument,String,RingElement,Ideal)
+Headline
+  add a Gröbner-backed non-membership claim
+Usage
+  nonMembershipClaim(D,id,f,I)
+Description
+  Text
+    Divides f by a Gröbner basis and exports a nonzero fully reduced remainder.
+    The string option "groebnerClaim" names the prerequisite Gröbner claim in
+    the same document and defaults to "gb1".  Add that claim before this one.
+///
+
+doc ///
+Key
+  chainComplexClaim
+  (chainComplexClaim,M2LeanDocument,String,List)
+Headline
+  add a chain-complex composition claim
+Usage
+  chainComplexClaim(D,id,differentials)
+Description
+  Text
+    Checks in Macaulay2 and exports that consecutive matrices compose to zero.
+    Acceptance does not assert exactness, minimality, or a resolution.
+///
+
+doc ///
+Key
+  gradedComplexClaim
+  (gradedComplexClaim,M2LeanDocument,String,List)
+Headline
+  add a graded-complex runtime claim
+Usage
+  gradedComplexClaim(D,id,differentials)
+Description
+  Text
+    Exports the source and target generator degrees together with the
+    differentials.  Lean checks dimensions, twists, homogeneity, and
+    composition at runtime; graded soundness is not yet formalized.
+///
+
+doc ///
+Key
+  writeM2LeanDocument
+  (writeM2LeanDocument,M2LeanDocument,String)
+Headline
+  serialize a protocol 0.2.0 document
+Usage
+  filename = writeM2LeanDocument(D,filename)
+Inputs
+  D:M2LeanDocument
+  filename:String
+Outputs
+  filename:String
+Description
+  Text
+    Writes the accumulated objects and claims in canonical JSON form with
+    informational provenance.  The string option "algorithm" customizes the
+    recorded producer-algorithm description; it never changes assurance.
+///
+
+doc ///
+Key
+  verifyWithLean
+  (verifyWithLean,M2LeanDocument)
+Headline
+  invoke m2lean-check and return its report
+Usage
+  report = verifyWithLean D
+Inputs
+  D:M2LeanDocument
+Description
+  Text
+    Writes a temporary document, invokes m2lean-check, displays per-claim
+    status and assurance, and returns the parsed report hash table.  Set the
+    M2LEAN_CHECK environment variable when the executable is not on PATH.
+    A report is operational output, not a Lean proof object.
+///
+
+TEST ///
+R = QQ[x,y]
+D = newM2LeanDocument "package-test"
+I = ideal(x+y,x-y)
+membershipClaim(D,"mem",x^3+y^3,I)
+assert(D =!= null)
+///
+
+TEST ///
+R = QQ[a,b,c,d]
+I = minors(2,matrix{{a,b,c},{b,c,d}})
+B = first entries gens gb I
+f = a*B#0+b*B#1+(c+d)*B#2
+(q,r) = divisionAlgorithm(f,B)
+assert(r == 0)
+assert(f == sum(#q,i -> q#i*B#i))
 ///

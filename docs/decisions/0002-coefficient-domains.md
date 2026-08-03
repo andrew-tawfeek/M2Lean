@@ -2,27 +2,29 @@
 
 - Status: accepted
 - Date: 2026-07-20
+- Updated: 2026-08-03 for protocol 0.2.0 implementation status
 
 ## Decision
 
-Protocol 0.1.0 supports exactly `RationalField` and `PrimeField p`
-(p prime, verified by the consumer). Encodings: reduced fractions of
-decimal strings; residues in `[0, p)`. JSON numbers are never used
-for mathematical data.
+Protocol 0.2.0 supports exactly `RationalField` and `PrimeField p`, with
+primality verified by the consumer. Rational coefficients are reduced
+fractions of decimal strings; prime-field residues are decimal strings in
+`[0, p)`. JSON numbers are never used for mathematical scalar data.
 
 ## Rationale
 
-Both systems have exactly aligned semantics for these domains: M2's
-`QQ`/`ZZ/p` and mathlib's `ℚ`/`ZMod p`. Algebraic extensions, towers,
-inexact fields, and `ZZ` (non-field Gröbner theory) all introduce
-semantic mismatches that would grow the trusted semantics layer before
-the vertical slice exists. The Lean semantics currently interprets
-only ℚ; prime fields are parsed and validated but their `checked`
-claims are not yet promoted to `proved` (roadmap item 3).
+Macaulay2's `QQ`/`ZZ/p` and mathlib's `ℚ`/`ZMod p` have aligned semantics for
+the supported operations. Algebraic extensions, towers, inexact fields, and
+`ZZ` (non-field Gröbner theory) introduce additional semantic obligations and
+are intentionally deferred.
+
+The Lean checkers and soundness theorems are parameterized over the
+coefficient field. Prime-field documents are interpreted using `ZMod p` only
+after the consumer verifies that `p` is prime.
 
 ## Consequences
 
-M2 users must map their computation into ℚ or a prime field before
-certification. Charateristic-dependent behavior (e.g. GB over ℚ vs
-F_p) is the producer's responsibility; the certificate is checked in
-the declared domain only.
+Users must map a computation into `QQ` or a prime field before certification.
+Characteristic-dependent behavior (for example, a Gröbner basis over `QQ`
+versus `ZZ/p`) is the producer's responsibility; the certificate is checked
+only in its declared coefficient field.

@@ -81,7 +81,7 @@ def parseCanonicalInt (s : String) (path : String) : P Int := do
   let body := if s.startsWith "-" then s.drop 1 else s
   if body.isEmpty || !body.all Char.isDigit then
     throw s!"{path}: '{s}' is not a decimal integer"
-  if body.length > 1 && body.front == '0' then
+  if body.positions.length > 1 && body.front == '0' then
     throw s!"{path}: leading zeros in '{s}'"
   if s == "-0" then throw s!"{path}: '-0' is not canonical"
   let n := body.foldl (fun a c => a * 10 + (c.toNat - '0'.toNat)) 0
@@ -192,6 +192,21 @@ def parseIdList (j : Json) (k : String) (path : String) : P (List String) := do
   (← getArr j k path).toList.mapIdxM fun i v =>
     v.getStr?.mapError (s!"{path}.{k}[{i}]: {·}")
 
+/-- Validate the interoperable shape of the otherwise-informational
+provenance object (SPEC §7).  Unknown fields remain permitted so producers
+can record additional reproducibility metadata without a protocol bump. -/
+def validateProvenance (j : Json) (path : String) : P Unit := do
+  let _ ← j.getObj?.mapError (fun _ => s!"{path}: expected an object")
+  let _ ← getStr j "producer" path
+  let _ ← getStr j "producerVersion" path
+  for k in ["packageVersion", "algorithm", "coefficientNotes"] do
+    if let .ok v := j.getObjVal? k then
+      let _ ← v.getStr?.mapError (s!"{path}.{k}: {·}")
+  if let .ok v := j.getObjVal? "options" then
+    let _ ← v.getObj?.mapError (fun _ => s!"{path}.options: expected an object")
+  if let .ok v := j.getObjVal? "deterministic" then
+    let _ ← v.getBool?.mapError (s!"{path}.deterministic: {·}")
+
 def parseClaim (j : Json) (path : String) : P PClaim := do
   let id ← getStr j "id" path
   let ev ← getObj j "evidence" path
@@ -250,8 +265,16 @@ def parseDocument (s : String) : P Document := do
       throw s!"objects[{i}]: duplicate id '{id}'"
     objs := objs ++ [(id, e)]
   let claimJs ← getArr j "claims" "document"
-  let claims ← claimJs.toList.mapIdxM fun i c => parseClaim c s!"claims[{i}]"
+  let mut claims : List PClaim := []
+  for h : i in [0 : claimJs.size] do
+    let c ← parseClaim claimJs[i] s!"claims[{i}]"
+    if (claims.find? (·.id == c.id)).isSome then
+      throw s!"claims[{i}]: duplicate id '{c.id}'"
+    if (objs.find? (·.1 == c.id)).isSome then
+      throw s!"claims[{i}]: id '{c.id}' collides with an object id"
+    claims := claims ++ [c]
   let prov ← getObj j "provenance" "document"
+  validateProvenance prov "document.provenance"
   return { documentId := docId, objects := objs, claims := claims,
            provenance := prov }
 
@@ -286,9 +309,9 @@ def validateDocument (d : Document) : P Unit := do
       | some (arity, _, _) =>
         if !isRaw arity lhs || !isRaw arity rhs then
           throw s!"claim '{c.id}': raw polynomial has wrong arity"
-    | .membership iid _ cofs =>
+    | .membership iid el cofs =>
       match d.find? iid with
-      | some (.ideal rid _) => checkCanon rid s!"claim '{c.id}'" cofs
+      | some (.ideal rid _) => checkCanon rid s!"claim '{c.id}'" (el :: cofs)
       | _ => throw s!"claim '{c.id}': '{iid}' is not an Ideal"
     | .spanInclusion src tgt rows => do
       let ridOf := fun (x : String) => match d.find? x with

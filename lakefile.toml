@@ -1,0 +1,22 @@
+name = "m2lean"
+version = "0.2.0"
+description = "Certificate-based interoperability between Macaulay2 and Lean 4"
+keywords = ["math", "formal-verification", "computer-algebra", "groebner-bases", "cli"]
+homepage = "https://github.com/andrew-tawfeek/M2Lean"
+license = "MIT"
+licenseFiles = ["LICENSE"]
+readmeFile = "README.md"
+srcDir = "lean"
+defaultTargets = ["M2Lean"]
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.32.0"
+
+[[lean_lib]]
+name = "M2Lean"
+
+[[lean_exe]]
+name = "m2lean-check"
+root = "Main"

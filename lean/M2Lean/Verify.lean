@@ -230,6 +230,7 @@ def report (d : Document) (results : List ClaimResult) : Json :=
     ("documentId", Json.str (d.documentId ++ "-report")),
     ("reportFor", Json.str d.documentId),
     ("results", Json.arr (results.map (·.toJson)).toArray),
+    ("inputProvenance", d.provenance),
     ("provenance", Json.mkObj [
       ("producer", Json.str "m2lean-check (Lean 4)"),
       ("packageVersion", Json.str "0.2.0")])]

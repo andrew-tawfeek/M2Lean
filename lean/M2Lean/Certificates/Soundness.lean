@@ -85,6 +85,7 @@ def onePoly : SPoly α := [⟨1, []⟩]
 @[simp] theorem toMon_nil : toMon n [] = 0 := by
   ext i; simp
 
+omit [DecidableEq α] in
 @[simp] theorem toMv_onePoly : toMv n (onePoly : SPoly α) = 1 := by
   simp [onePoly, toMv, toTerm, toMon_nil]
 
@@ -125,6 +126,7 @@ def toMatrix (r c : Nat) (M : SMatrix α) :
     Matrix (Fin r) (Fin c) (MvPolynomial (Fin n) α) :=
   Matrix.of fun i j => toMv n ((M.getD i []).getD j [])
 
+omit [Field α] [DecidableEq α] in
 theorem col_getD (B : SMatrix α) (j k : Nat) :
     (SMatrix.col B j).getD k [] = (B.getD k []).getD j [] := by
   induction B generalizing k with
@@ -134,6 +136,7 @@ theorem col_getD (B : SMatrix α) (j k : Nat) :
     | zero => simp [SMatrix.col]
     | succ k => simpa [SMatrix.col] using ih k
 
+omit [Field α] [DecidableEq α] in
 /-- Bridge between list sums and `Fin`-indexed sums. -/
 theorem sum_zipWith_eq_finsum {β : Type*} [AddCommMonoid β]
     (f : SPoly α → SPoly α → β) :

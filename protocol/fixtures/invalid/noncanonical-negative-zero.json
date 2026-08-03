@@ -1,0 +1,20 @@
+{
+  "m2leanVersion": "0.2.0",
+  "documentId": "fixture-negative-zero",
+  "_expectRejection": "structural: negative zero is not a canonical integer",
+  "objects": [
+    { "id": "QQ", "kind": "RationalField" },
+    { "id": "R", "kind": "PolynomialRing", "coefficients": "QQ",
+      "variables": ["x"], "monomialOrder": { "kind": "GRevLex" } },
+    { "id": "I", "kind": "Ideal", "ring": "R", "generators": [
+      { "terms": [
+        { "coefficient": { "num": "-0", "den": "1" }, "exponents": [1] }
+      ] }
+    ] }
+  ],
+  "claims": [],
+  "provenance": {
+    "producer": "handwritten", "producerVersion": "n/a",
+    "packageVersion": "0.2.0", "deterministic": true
+  }
+}

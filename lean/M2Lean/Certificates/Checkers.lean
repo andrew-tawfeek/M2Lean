@@ -10,10 +10,11 @@ these calls.
 Assurance levels (SPEC §6):
 - `checkMembership`, `checkSpanInclusion`, `checkComposeZero` have
   soundness theorems (`proved`).
-- `checkGroebner` and `checkGradedComplex` are complete executable
-  checks whose mathematical soundness rests on cited, not yet
-  formalized, theorems (`checked`).  Nothing in
-  `M2Lean/Examples` derives a Lean theorem from them.
+- `checkGroebner` and `checkNonMembership` have kernel-checked
+  soundness theorems for GRevLex certificates.  Lex order-agreement
+  is not yet formalized, so Lex instances remain `checked`.
+- `checkGradedComplex` is an executable check whose full graded
+  soundness layer remains cited rather than formalized (`checked`).
 -/
 import Mathlib.Algebra.Field.Defs
 import M2Lean.Protocol.Sparse
@@ -61,7 +62,7 @@ def checkComplexPair (r m c : Nat) (A B : SMatrix α) : Bool :=
   B.length == m && B.all (fun row => row.length == c) &&
   checkComposeZero r c A B
 
-/-! ## Gröbner bases (assurance level: `checked`)
+/-! ## Gröbner bases (GRevLex: `proved`; Lex: `checked`)
 
 The checker verifies Buchberger's criterion in standard-representation
 form: both span inclusions between generators and proposed basis, and
@@ -142,7 +143,7 @@ def checkSPair (ord : MonOrder) (basis : List (SPoly α)) (sp : SPairCert α) : 
   | _, _ => false
 
 /-- Every pair `i < j` is covered by some S-pair certificate. -/
-def sPairsCover (ord : MonOrder) (basis : List (SPoly α)) (sps : List (SPairCert α)) : Bool :=
+def sPairsCover (basis : List (SPoly α)) (sps : List (SPairCert α)) : Bool :=
   (List.range basis.length).all fun i =>
     (List.range basis.length).all fun j =>
       if i < j then sps.any fun sp => sp.i == i && sp.j == j
@@ -159,7 +160,7 @@ def checkGroebner (n : Nat) (ord : MonOrder) (gens basis : List (SPoly α))
   checkSpanInclusion basis gens basisCof &&
   checkSpanInclusion gens basis genCof &&
   sps.all (checkSPair ord basis) &&
-  sPairsCover ord basis sps
+  sPairsCover basis sps
 
 /-- `a` divides `b` as monomials: every exponent of `a` is at most the
 corresponding exponent of `b` (missing entries are 0). -/

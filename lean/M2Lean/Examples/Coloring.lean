@@ -85,19 +85,20 @@ theorem gens_interp : not3col_gens.map (toMv 6) = vertPolys ++ edgePolys := by
 
 /-! ### The encoding-correctness lemmas -/
 
-variable (c : Fin 6 → Fin 3)
+variable {n : Nat} (c : Fin n → Fin 3)
 
-/-- A vertex generator vanishes at the point `x_v = ζ^(colour of v)`. -/
-theorem vertex_vanish (v : Fin 6) :
-    aeval (fun w => ζ ^ (c w : ℕ)) (X v ^ 3 - 1 : MvPolynomial (Fin 6) ℚ) = 0 := by
+/-- For any finite vertex set `Fin n`, a vertex generator vanishes at the
+point `x_v = ζ^(colour of v)`. -/
+theorem vertex_vanish (v : Fin n) :
+    aeval (fun w => ζ ^ (c w : ℕ)) (X v ^ 3 - 1 : MvPolynomial (Fin n) ℚ) = 0 := by
   simp only [map_sub, map_pow, aeval_X, map_one]
   rw [← pow_mul, mul_comm, pow_mul, hζ3, one_pow, sub_self]
 
-/-- An edge generator vanishes at that point when its endpoints get
-different colours (which a proper colouring guarantees). -/
-theorem edge_vanish (u v : Fin 6) (hne : c u ≠ c v) :
+/-- For any finite vertex set `Fin n`, an edge generator vanishes at that
+point when its endpoints get different colours. -/
+theorem edge_vanish (u v : Fin n) (hne : c u ≠ c v) :
     aeval (fun w => ζ ^ (c w : ℕ))
-      (X u ^ 2 + X u * X v + X v ^ 2 : MvPolynomial (Fin 6) ℚ) = 0 := by
+      (X u ^ 2 + X u * X v + X v ^ 2 : MvPolynomial (Fin n) ℚ) = 0 := by
   simp only [map_add, map_mul, map_pow, aeval_X]
   have hzne : ζ ^ (c u : ℕ) ≠ ζ ^ (c v : ℕ) :=
     fun h => hne (Fin.ext (hζ.pow_inj (c u).isLt (c v).isLt h))

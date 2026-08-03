@@ -1,6 +1,6 @@
 # Lean
-lean/.lake/
-lean/lakefile.olean
+.lake/
+lakefile.olean
 *.olean
 
 # LaTeX
@@ -18,3 +18,6 @@ paper/*.synctex.gz
 build/
 *.tmp
 texput.log
+# Python bytecode and tool caches
+__pycache__/
+*.py[cod]

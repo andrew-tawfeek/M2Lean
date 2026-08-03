@@ -21,7 +21,8 @@ def main (args : List String) : IO UInt32 := do
   let raw ← IO.FS.readFile input
   match parseDocument raw with
   | .error e =>
-    IO.eprintln s!"rejected (parse/structural): {e}"
+    let cls := if e.startsWith "parse:" then "parse" else "structural"
+    IO.eprintln s!"rejected ({cls}): {e}"
     return 2
   | .ok doc =>
     match validateDocument doc with

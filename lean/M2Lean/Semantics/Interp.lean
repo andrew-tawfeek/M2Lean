@@ -104,7 +104,7 @@ theorem toMv_insertMerged (t : STerm α) (l : SPoly α) :
   | cons u rest =>
     by_cases he : t.exps = u.exps
     · by_cases hc : t.coeff + u.coeff = 0
-      · simp only [insertMerged, he, if_pos, hc, ite_true]
+      · simp only [insertMerged, he, if_pos, hc]
         have : toTerm n t + toTerm n u = 0 := by
           simp [toTerm, he, ← map_add, hc]
         simp [← add_assoc, this]
