@@ -20,8 +20,11 @@ import M2Lean.Groebner.DegRevLex
 #print axioms M2Lean.Flagship.resolution_composes_to_zero
 #print axioms M2Lean.Jacobian.jacF_det
 #print axioms M2Lean.Jacobian.certificate_checks
+#print axioms M2Lean.Jacobian.collision_certified
 #print axioms M2Lean.Jacobian.F_not_injective
+#print axioms M2Lean.Jacobian.F_has_no_polynomial_inverse
 #print axioms M2Lean.Jacobian.jacobian_conjecture_false
+#print axioms M2Lean.Jacobian.polynomial_jacobian_conjecture_false
 #print axioms M2Lean.Coloring.certificate_checks
 #print axioms M2Lean.Coloring.gens_interp
 #print axioms M2Lean.Coloring.wheel5_not_three_colorable

@@ -1,80 +1,105 @@
 # M2Lean architecture
 
-M2Lean has four layers (README §4). This document records how the
-current implementation realizes them.
+M2Lean 0.2.0 has two related verification paths. They share the same protocol
+and executable checkers but end at different assurance levels.
 
 ```text
-Macaulay2  --export-->  protocol document (JSON)  --parse/validate-->  Lean
-   |                                                                    |
-   |  computes objects, extracts evidence                               |  interprets objects into
-   |  (change matrices, cofactors,                                      |  mathlib types, runs
-   |   S-pair reductions)                                               |  certificate checkers,
-   |                                                                    |  applies soundness theorems
-   +------------------<--  verification report (JSON)  <----------------+
+                         untrusted production
+Macaulay2  ───────▶  protocol 0.2.0 JSON  ───────▶  parse and validate
+   │                                                     │
+   │ computes witnesses                                  ▼
+   │                                            executable checker
+   │                                                     │
+   │                              ┌──────────────────────┴──────────────────┐
+   │                              ▼                                         ▼
+   └──────────────────── runtime JSON report                 soundness theorem instance
+                              (`checked`/`proved`)                         │
+                                                                          ▼
+                                                               Lean kernel theorem
 ```
 
-## Layer 1 — interchange representation (`protocol/`)
+A runtime `proved` label means that the accepted checker has a formal
+soundness theorem in the library. The report is not a serialized proof term.
+The right-hand path is complete only when a Lean theorem instantiates the
+soundness result and is checked by the kernel.
 
-`protocol/SPEC.md` is normative. Version 0.1.0 covers: ℚ and prime
-fields; multivariate polynomial rings with Lex/GRevLex; sparse
-canonical polynomials; ideals; matrices; graded free modules; and six
-claim kinds (identity, membership, span inclusion, Gröbner basis,
-chain complex, graded complex). `protocol/schema/` holds a JSON
-Schema for structural validation; `protocol/fixtures/` holds valid and
-adversarial documents shared by both implementations' test suites.
+## Layer 1: interchange representation
 
-## Layer 2 — semantics (`lean/M2Lean/Protocol`, `lean/M2Lean/Semantics`)
+[`protocol/SPEC.md`](../protocol/SPEC.md) is normative. Protocol 0.2.0 covers:
 
-- `Protocol/Ast.lean` — Lean datatypes mirroring the spec, plus JSON
-  decoding with path-carrying error messages.
-- `Protocol/Sparse.lean` — the executable computational model:
-  sparse polynomials as sorted term lists over ℚ, with normalization,
-  ring operations, monomial orders, and canonicality checking.
-- `Semantics/Interp.lean` — the bridge to mathematics: an
-  interpretation `toMv : SPoly n → MvPolynomial (Fin n) ℚ` together
-  with proved lemmas that normalization, addition, multiplication, and
-  scalar operations on the sparse model commute with `toMv`. These
-  lemmas are what turn a byte-level check into a statement about
-  actual mathlib polynomials.
+- rational and prime coefficient fields;
+- multivariate polynomial rings with Lex or GRevLex order;
+- canonical sparse polynomials, ideals, matrices, and graded free modules;
+- polynomial identity, ideal membership, span inclusion, Gröbner basis,
+  non-membership, chain-complex, and graded-complex claims.
 
-Parsing a document is not a proof. Structural validation (arities,
-canonical scalars, dependency order, dimensions) happens before any
-interpretation, and rejects rather than repairs.
+Every Gröbner certificate contains evidence for every pair of distinct basis
+elements. A `NonMembership` claim explicitly depends on a Gröbner claim in the
+same document. The JSON schema is a convenience filter; the Lean consumer
+performs the normative structural and mathematical checks.
 
-## Layer 3 — claims and certificates (`lean/M2Lean/Certificates`)
+## Layer 2: executable semantics
 
-One checker per claim kind. Each checker is an executable Boolean (or
-error-reporting) function on the sparse model. The `proved`-level
-checkers additionally have soundness theorems of the shape
+- `lean/M2Lean/Protocol/Ast.lean` decodes protocol documents and produces
+  path-aware errors.
+- `lean/M2Lean/Protocol/Sparse.lean` implements canonical sparse polynomials,
+  arithmetic, and the Lex/GRevLex comparators.
+- `lean/M2Lean/Semantics/Interp.lean` interprets sparse polynomials as mathlib
+  `MvPolynomial` values and proves compatibility of the basic operations.
 
-```text
-theorem membership_sound (cl : MembershipClaim) :
-    checkMembership cl = true →
-    toMv cl.element ∈ Ideal.span (toMv '' cl.generators)
-```
+Structural validation checks version, identifier dependencies, arities,
+dimensions, coefficient canonicality, monomial order, and polynomial
+canonicality before claims are evaluated. Invalid input is rejected rather
+than silently repaired, except where the normative specification explicitly
+says otherwise.
 
-so that acceptance yields a genuine mathlib proposition. The
-`GroebnerBasis` checker verifies Buchberger's criterion in
-standard-representation form computationally; its soundness theorem
-(the criterion itself) is future formalization work, and the claim is
-therefore reported at assurance level `checked`, not `proved`.
+Provenance has a validated shape and is echoed in reports, but remains
+informational: it is not an input to any mathematical checker and reported
+nondeterminism does not reduce independently established assurance.
 
-## Layer 4 — user-facing integrations (`m2/`, `scripts/`)
+## Layer 3: certificate checkers and soundness
 
-- `m2/M2Lean.m2` is a Macaulay2 package exposing `exportRing`,
-  `membershipCertificate`, `gbCertificate`, `complexCertificate`,
-  `unitIdealCertificate`, and `writeM2LeanDocument`. Evidence comes
-  from public M2 interfaces: `quotientRemainder` against a Gröbner
-  basis for cofactors, `getChangeMatrix`/`forceGB` for change of
-  basis, and ordinary matrix arithmetic for S-polynomials.
-- `lean/Main.lean` builds a CLI `m2lean-check` that reads a document,
-  runs all checkers, and writes a verification report.
-- `scripts/` glues the two: an example is an M2 script that emits a
-  document, then a Lean invocation that checks it, then (for the
-  flagship) a Lean theorem file that consumes the accepted claim.
+`lean/M2Lean/Certificates/Checkers.lean` contains the executable checks.
+`lean/M2Lean/Certificates/Soundness.lean` connects identity, membership, span
+inclusion, and chain-complex acceptance to mathlib propositions.
 
-## Trusted boundary
+The Gröbner path is split by monomial order:
 
-See `docs/trust-model.md`. In one line: everything left of the JSON
-document is untrusted; the Lean kernel, the semantics files, and the
-soundness theorems are the trusted core.
+- For **GRevLex**, `lean/M2Lean/Groebner/DegRevLex.lean` defines the abstract
+  order, `Bridge.lean` proves agreement with the executable comparator, and
+  `Sound.lean` proves soundness of the Gröbner and non-membership checkers via
+  the formalized Buchberger criterion. These claims are `proved`.
+- For **Lex**, the executable check is available, but comparator-to-abstract-
+  order agreement and the final soundness bridge are not yet formalized.
+  These claims are `checked`.
+
+`GradedComplex` checks matrix sizes, twists, homogeneity, and consecutive
+composition at runtime. Its graded semantic bridge is not yet formalized, so
+it remains `checked`. `ChainComplex` is `proved`, but asserts only that
+consecutive differentials compose to zero—not exactness, minimality, or a
+resolution statement.
+
+## Layer 4: integrations
+
+- `m2/M2Lean.m2` exports supported Macaulay2 objects and witnesses as protocol
+  documents. Its public claim constructors are `polynomialIdentityClaim`,
+  `membershipClaim`, `unitIdealClaim`, `spanInclusionClaim`, `gbClaim`,
+  `nonMembershipClaim`, `chainComplexClaim`, and `gradedComplexClaim`.
+- `lean/Main.lean` builds `m2lean-check`, which validates a document, evaluates
+  claims, and emits a JSON verification report.
+- `verifyWithLean` lets a Macaulay2 session invoke the executable and display
+  per-claim assurance levels.
+- `by macaulay2` is an optional Lean elaborator tactic for a restricted class
+  of ground ideal-membership goals. The live Macaulay2 process is a witness
+  generator, not a trusted proof oracle.
+
+## Boundaries and reproducibility
+
+The logical trust boundary is described in [`trust-model.md`](trust-model.md).
+Operational reproducibility is separate: the release gate verifies the
+shipped artifacts, regenerates JSON and generated Lean data, checks their
+raw-byte SHA-256 digests, builds theorem files, and audits axioms. The pinned
+environment and authoritative artifact inventory live in
+[`../reproducibility/manifest.json`](../reproducibility/manifest.json); the
+same hashes are exposed in the standard-tool
+[`generated.sha256`](../reproducibility/generated.sha256) ledger.

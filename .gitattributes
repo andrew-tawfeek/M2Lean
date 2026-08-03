@@ -2,5 +2,7 @@
 *.lean  text eol=lf
 *.m2    text eol=lf
 *.json  text eol=lf
+*.py    text eol=lf
+*.sha256 text eol=lf
 *.toml  text eol=lf
 lean-toolchain text eol=lf

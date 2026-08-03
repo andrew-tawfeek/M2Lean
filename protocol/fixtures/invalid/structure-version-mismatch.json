@@ -1,0 +1,11 @@
+{
+  "m2leanVersion": "0.1.0",
+  "documentId": "fixture-version-mismatch",
+  "_expectRejection": "structural: unsupported protocol version",
+  "objects": [],
+  "claims": [],
+  "provenance": {
+    "producer": "handwritten", "producerVersion": "n/a",
+    "packageVersion": "0.1.0", "deterministic": true
+  }
+}

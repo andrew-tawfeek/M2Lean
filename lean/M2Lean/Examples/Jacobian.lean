@@ -28,8 +28,9 @@ with no `sorry` and only the three standard axioms (`Audit.lean`):
     that non-injectivity needs — is then *checked* by evaluating `F` at
     the three points, so the induced map `ℚ³ → ℚ³` is not injective
     (`F_not_injective`);
-3.  therefore the Jacobian Conjecture as stated is false in dimension
-    three (`jacobian_conjecture_false`), hence in every dimension `≥ 3`.
+3.  therefore the rational-point injectivity formulation defined below
+    is false in dimension three (`jacobian_conjecture_false`).  No
+    dimension-raising theorem is claimed in this file.
 
 The map is
   F(x,y,z) = ( (1+xy)³z + y²(1+xy)(4+3xy),
@@ -127,12 +128,34 @@ theorem certificate_checks :
     checkMembership P2_F3_element P2_F3_gens P2_F3_cofactors = true := by
   decide +kernel
 
-/-- The membership soundness theorem turns a kernel-checked certificate
-into a genuine `mathlib` proposition: the interpreted element lies in the
-span of the interpreted generators (here, the maximal ideal of `P₁`). -/
+/-- The membership soundness theorem promotes all nine kernel-checked
+certificates to genuine `mathlib` propositions: each interpreted element
+lies in the span of the corresponding point-ideal generators.
+
+These propositions record the certificate path.  The final noninjectivity
+proof below deliberately checks the displayed rational collision directly;
+it does not pretend that the certificates are a logical dependency when
+ordinary evaluation is already decisive. -/
 theorem collision_certified :
-    toMv 3 P1_F1_element ∈ spanOf 3 P1_F1_gens :=
-  checkMembership_sound 3 certificate_checks.2.2.2.1
+    toMv 3 P0_F1_element ∈ spanOf 3 P0_F1_gens ∧
+    toMv 3 P0_F2_element ∈ spanOf 3 P0_F2_gens ∧
+    toMv 3 P0_F3_element ∈ spanOf 3 P0_F3_gens ∧
+    toMv 3 P1_F1_element ∈ spanOf 3 P1_F1_gens ∧
+    toMv 3 P1_F2_element ∈ spanOf 3 P1_F2_gens ∧
+    toMv 3 P1_F3_element ∈ spanOf 3 P1_F3_gens ∧
+    toMv 3 P2_F1_element ∈ spanOf 3 P2_F1_gens ∧
+    toMv 3 P2_F2_element ∈ spanOf 3 P2_F2_gens ∧
+    toMv 3 P2_F3_element ∈ spanOf 3 P2_F3_gens := by
+  rcases certificate_checks with ⟨h01, h02, h03, h11, h12, h13, h21, h22, h23⟩
+  exact ⟨checkMembership_sound 3 h01,
+    checkMembership_sound 3 h02,
+    checkMembership_sound 3 h03,
+    checkMembership_sound 3 h11,
+    checkMembership_sound 3 h12,
+    checkMembership_sound 3 h13,
+    checkMembership_sound 3 h21,
+    checkMembership_sound 3 h22,
+    checkMembership_sound 3 h23⟩
 
 /-- **`F` is not injective.**  Two distinct points share an image. -/
 theorem F_not_injective :
@@ -148,6 +171,32 @@ theorem F_not_injective :
   norm_num at this
 
 /-! ### Step 3 — the Jacobian Conjecture is false -/
+
+/-- Evaluate an `n`-tuple of polynomials as a map on rational points. -/
+def evalPolynomialMap {n : Nat} (G : Fin n → MvPolynomial (Fin n) ℚ) :
+    (Fin n → ℚ) → (Fin n → ℚ) :=
+  fun p i => aeval p (G i)
+
+/-- A two-sided polynomial inverse on rational points.  The inverse map is
+itself given by an `n`-tuple of polynomials; the identities are stated after
+evaluation on every rational point. -/
+def HasPolynomialInverse {n : Nat} (G : Fin n → MvPolynomial (Fin n) ℚ) : Prop :=
+  ∃ H : Fin n → MvPolynomial (Fin n) ℚ,
+    Function.LeftInverse (evalPolynomialMap H) (evalPolynomialMap G) ∧
+    Function.RightInverse (evalPolynomialMap H) (evalPolynomialMap G)
+
+/-- The polynomial-inverse formulation over `ℚ`: a constant nonzero
+Jacobian determinant should force a two-sided polynomial inverse. -/
+def PolynomialJacobianConjecture (n : ℕ) : Prop :=
+  ∀ G : Fin n → MvPolynomial (Fin n) ℚ,
+    (∃ c : ℚ, c ≠ 0 ∧ (Matrix.of fun i j => pderiv j (G i)).det = C c) →
+    HasPolynomialInverse G
+
+/-- The displayed map has no polynomial inverse: even a left inverse would
+make its map on rational points injective, contradicting the collision. -/
+theorem F_has_no_polynomial_inverse : ¬ HasPolynomialInverse F := by
+  rintro ⟨G, hleft, -⟩
+  exact F_not_injective hleft.injective
 
 /-- The Jacobian Conjecture in dimension `n` (Keller's injective
 formulation over `ℚ`): if the Jacobian determinant of a polynomial
@@ -167,6 +216,15 @@ in the kernel via `certificate_checks`. -/
 theorem jacobian_conjecture_false : ¬ JacobianConjecture 3 := by
   intro H
   refine F_not_injective (H F ⟨-2, by norm_num, ?_⟩)
+  rw [show (Matrix.of fun i j => pderiv j (F i)).det = -2 from jacF_det]
+  simp only [map_neg, map_ofNat]
+
+/-- The polynomial-inverse formulation is likewise false in dimension
+three.  This conclusion uses only that a polynomial inverse supplies a left
+inverse on rational points. -/
+theorem polynomial_jacobian_conjecture_false : ¬ PolynomialJacobianConjecture 3 := by
+  intro H
+  refine F_has_no_polynomial_inverse (H F ⟨-2, by norm_num, ?_⟩)
   rw [show (Matrix.of fun i j => pderiv j (F i)).det = -2 from jacF_det]
   simp only [map_neg, map_ofNat]
 

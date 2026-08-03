@@ -5,6 +5,7 @@
 \usepackage[T1]{fontenc}
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs}
+\usepackage{graphicx}
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{tikz}
@@ -12,18 +13,11 @@
 \usepackage{url}
 \usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
 \usepackage{microtype}
-\usepackage{framed}
-
-% audience boxes: a colored left bar in the owning system's color,
-% matching the code-listing aesthetic
-\newenvironment{audiencebox}[1]{%
-  \def\FrameCommand{{\color{#1}\vrule width 2.5pt}\hspace{9pt}}%
-  \MakeFramed{\advance\hsize-\width\FrameRestore}\noindent\ignorespaces}%
-  {\endMakeFramed}
 
 % ---------------------------------------------------------------
-% Color scheme.  Red = Macaulay2 (computation, outside the kernel-checked base),
-% blue = Lean (trusted verification), amber = the protocol boundary.
+% Color scheme.  Red = Macaulay2, blue = Lean-side artifacts,
+% amber = the protocol boundary.  The logical trust boundary is drawn
+% explicitly in Figure 1; color alone does not denote trust.
 % Listings are color-coded by which system owns the artifact.
 % ---------------------------------------------------------------
 \definecolor{m2col}{RGB}{158,27,50}
@@ -85,331 +79,197 @@
 \newcommand{\lm}{\operatorname{lm}}
 \newcommand{\code}[1]{\texttt{#1}}
 
-\title{\textbf{M2Lean: A Certificate-Based Bridge Between\\ Macaulay2 and Lean~4}}
+\title{\textbf{M2Lean: Certificate-Based Interoperability Between\\ Macaulay2 and Lean~4}}
 \author{Andrew Tawfeek\thanks{Independent researcher.
-\texttt{atawfeek.math@gmail.com}.  The implementation described here
-was developed with the assistance of Claude (Anthropic).  Code and all
-artifacts: \url{https://github.com/andrew-tawfeek/M2Lean}.}}
-\date{July 2026}
+\texttt{atawfeek.math@gmail.com}.}}
+\date{August 2026}
+
+\hypersetup{
+  pdftitle={M2Lean: Certificate-Based Interoperability Between Macaulay2 and Lean 4},
+  pdfauthor={Andrew Tawfeek},
+  pdfsubject={Certificate-based interoperability between computer algebra and formal proof},
+  pdfkeywords={Macaulay2, Lean 4, computer algebra, proof assistant, certificates, Groebner bases}
+}
+
+% Avoid isolated first/last lines of paragraphs in the final manuscript.
+\widowpenalty=10000
+\clubpenalty=10000
+\displaywidowpenalty=10000
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-\M{} computes; \lean{} certifies.  M2Lean connects them through a
-certificate contract: \M{}'s answers travel with the \emph{evidence}
-behind them---cofactors, division data, Buchberger S-pair
-representations---which \lean{} re-verifies with small checkers
-backed by kernel-checked soundness theorems, so the resulting
-theorems rest on no implementation, \M{}'s or anyone's.  We present a
-versioned interchange protocol for exact commutative algebra over
-$\QQ$ and prime fields, a \M{} package that exports computations with
-their evidence and verifies them without leaving the \M{} session,
-and a \lean{}~4 library whose accepted claims become genuine
-\mathlib{} propositions.  The Gr\"obner tier is fully proved: we
-formalize Buchberger's criterion in standard-representation form and
-the degree-reverse-lexicographic monomial order (both absent from
-\mathlib{}), so certified Gr\"obner bases and negative certificates
-(non-membership via normal forms) carry kernel-checked soundness.  A
-\code{by macaulay2} tactic closes ideal-membership goals by consulting
-a live \M{} process and kernel-checking its answer.  A flagship
-example proves the twisted cubic cone disjoint from a line over every
-nontrivial commutative $\QQ$-algebra; a second turns the July~2026
-counterexample to the Jacobian conjecture into a kernel-checked
-theorem; a third certifies that a graph is
-\emph{not} $3$-colourable from a Nullstellensatz infeasibility witness,
-the counterpart to \mathlib{}'s Combinatorial Nullstellensatz; further
-examples reach into invariant theory, algebraic statistics, Galois
-theory (a certified \code{Polynomial.Separable} instance), combinatorial
-algebraic geometry, and $\mathbb{F}_{101}$.  Corrupted certificates
-are rejected; continuous integration replays everything.
+M2Lean is a prototype interoperability layer between the computer
+algebra system \M{} and the \lean{}~4 proof assistant.  \M{} exports
+computations together with checkable evidence---for example,
+ideal-membership cofactors, change-of-basis matrices, and standard
+representations of S-polynomials---in a versioned JSON protocol for
+exact polynomial algebra over $\QQ$ and prime fields.  A \lean{}
+library supplies executable checkers and, for most claim families,
+kernel-checked soundness theorems relating checker acceptance to
+\mathlib{} propositions.
+
+We distinguish two outcomes that are often conflated.  The
+\code{m2lean-check} executable produces a runtime verification report;
+its \code{proved} label means that the relevant checker has a formal
+soundness theorem, not that the particular report is a proof object.
+For selected examples and for a prototype \code{by macaulay2} tactic,
+certificate data are instead embedded in a theorem file, re-evaluated
+by \lean{}'s kernel, and passed to the soundness theorem.  This second
+path yields a kernel-checked theorem.
+
+The development includes a bridge-specific formalization of
+Buchberger's standard-representation criterion, a
+degree-reverse-lexicographic monomial order and its agreement with the
+executable representation, and soundness for Gr\"obner-basis and
+non-membership certificates under that order.  Case studies cover a
+scheme-theoretically empty intersection involving the twisted cubic,
+the 2026 counterexample to the Jacobian conjecture, and
+Nullstellensatz certificates for graph non-colourability.  In an
+runtime-path test suite, 15 valid documents are accepted and 20
+malformed or corrupted documents are rejected.  The evaluation is
+intended as a reproducibility and failure-detection study of the
+current prototype, not as evidence of research-scale performance.
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
 
-Somewhere in the literature of commutative algebra, a proof reaches a
-step that reads: \emph{``a Macaulay2 computation shows that the
-minimal free resolution has Betti numbers $1, 3, 2$.''}  Journals
-accept such sentences routinely, and rightly so: \M{} is the product
-of three decades of careful development by a community of
-mathematicians, its algorithms published, its conventions documented,
-its behavior exercised daily by researchers who would notice if it
-were wrong.  What the sentence lacks is not credibility but
-\emph{permanence and portability}.  The session behind it is gone ---
-its package versions, options, and monomial-order conventions
-unrecorded --- so the reader a decade later cannot replay it.  And no
-matter how reliable the system that produced it, the result cannot
-travel into a formal proof, because proof assistants accept nothing
-on testimony from \emph{any} software --- not from a computer algebra
-system, not from their own compilers, not from the hardware they run
-on.  That is a different standard of evidence, not a higher one, and
-it is the standard the celebrated formalizations of the four-color
-theorem~\cite{gonthier}, the Kepler conjecture~\cite{hales-flyspeck},
-and the Liquid Tensor Experiment~\cite{scholze-liquid} were built to
-meet for their computational steps.  M2Lean lets computational
-commutative algebra meet it routinely and cheaply --- without asking
-anyone to abandon their tools, and without re-litigating \M{}'s
-correctness, because what crosses the bridge is mathematical
-evidence, not an implementation.
+Computer algebra systems and proof assistants optimize for different
+tasks.  A computer algebra system such as \M{}~\cite{M2} provides
+mature algorithms for Gr\"obner bases, resolutions, and related
+computations.  A proof assistant such as \lean{}~4~\cite{lean4},
+together with \mathlib{}~\cite{mathlib}, provides a small proof kernel
+and a language in which computational facts can be composed with
+abstract mathematics.  A printed computer-algebra answer is not, by
+itself, a term that the proof kernel can check.  Conversely,
+reimplementing a competitive computer algebra system inside a proof
+assistant is a much larger task than checking the evidence produced by
+one.
 
-The two tools in question serve different masters.  A working
-algebraic geometer who wants to \emph{compute}---a Gr\"obner basis, a
-free resolution, a primary decomposition---reaches for a computer
-algebra system such as \M{}~\cite{M2}.  A mathematician who wants to
-\emph{certify}---to produce a machine-checked proof---reaches for a
-proof assistant such as \lean{}~4~\cite{lean4} with its mathematical
-library \mathlib{}~\cite{mathlib}.  These ought to be two halves of
-one workflow; in practice they are disconnected, because \lean{}'s
-algebra library, while remarkably broad, contains almost none of the
-executable machinery of computational commutative algebra, and \M{}'s
-answers carry no evidence a proof assistant could accept.
-
-M2Lean is a bridge between the two systems designed around a division
-of labor rather than a translation:
-
-\begin{center}
-\begin{tabular}{ll}
-\toprule
-\M{} & the \emph{computational laboratory}: discovers examples,\\
-     & computes bases, resolutions, invariants, decompositions\\
-\lean{} & the \emph{logical authority}: fixes the mathematical meaning\\
-        & of those computations and certifies conclusions\\
-\bottomrule
-\end{tabular}
-\end{center}
-
-The goal is not to translate \M{} source code into \lean{}, nor to
-verify \M{}'s implementation.  It is to create a shared mathematical
-language and a bidirectional protocol through which a computation can
-cross from one system to the other \emph{without losing its meaning,
-its assumptions, or its checkability}.
-
-\paragraph{What a certificate is.}
-The mechanism throughout is the \emph{certificate}: data that lets a
-computational claim be checked by hand, without redoing the work that
-found it.  Deciding that $x^3+y^3$ lies in the ideal $(x+y,\,x-y)$ takes
-a Gr\"obner computation, but the engine can hand back the
-\emph{cofactors} that witness the answer---the \textcolor{m2col}{red}
-multipliers are the ones \M{} had to find; $x+y$ and $x-y$ are just the
-given generators:
+M2Lean therefore exchanges \emph{certificates}, not execution traces
+or assertions of success.  For example, membership of $x^3+y^3$ in
+$(x+y,x-y)\subseteq\QQ[x,y]$ is witnessed by the identity
 \[
   x^3+y^3 \;=\; \textcolor{m2col}{\tfrac12(x^2+y^2)}\,(x+y)
              \;+\; \textcolor{m2col}{\tfrac12(x^2-y^2)}\,(x-y),
 \]
-and now anyone---a referee, a student, or a proof kernel---confirms
-membership just by multiplying out and comparing, with no ideal theory
-at all.  Two properties make this worth building a bridge around.  A
-\emph{wrong} certificate cannot pass the check, so accepting one never
-requires trusting the system that produced it; and the check is small
-and self-contained, so the fact it establishes is permanent and
-portable in a way a vanished \M{} session is not.  Every result in this
-paper travels with evidence of this shape---cofactors for membership,
-division quotients for S-polynomial reductions, change-of-basis data
-for Gr\"obner bases---and \lean{} accepts nothing until it has
-re-checked the evidence for itself.
+which is checked by normalization.  More elaborate claims carry
+cofactors, division quotients, or S-polynomial representations of the
+same general form.  The potentially expensive search remains in
+\M{}; checking reduces to polynomial arithmetic and monomial
+comparisons.  This asymmetry is useful because ideal membership is
+EXPSPACE-complete over $\QQ$ in general~\cite{mayr1989}, whereas a proposed
+cofactor identity is directly verifiable.
 
-\paragraph{Finding is hard; checking is easy.}
-The entire design rests on one asymmetry.  Deciding ideal membership
-is EXPSPACE-complete in general~\cite{mayr-meyer}; Gr\"obner engines
-represent decades of algorithmic engineering precisely because the
-\emph{search} is expensive.  But the witness the search produces ---
-cofactors expressing an element in the generators, division quotients
-realizing an S-polynomial reduction --- can be verified by checking
-finitely many polynomial identities, a task a patient student could
-do by hand.  M2Lean asks \M{} only for what its algorithms already
-possess internally (witnesses) and asks \lean{} only for what a proof
-kernel is built to do (check them).  Neither system is asked to
-become the other.  This is why the bridge is cheap: certified answers
-in this paper cost milliseconds to re-verify and kilobytes to store
-(\S\ref{sec:experiments}), while remaining checkable by any \lean{}
-installation, forever, with every assumption pinned down.
+There are two distinct verification paths.  In the runtime path,
+\code{m2lean-check} parses a protocol document and executes compiled
+Boolean checkers.  In the theorem path, certificate literals are
+elaborated into a \lean{} theorem file, the same checks are evaluated
+by kernel reduction, and formal soundness theorems are applied.  Only
+the second path produces a proof term for the particular claim.  This
+distinction is central to the trust model in \S\ref{sec:trust} and is
+retained throughout the paper.
 
-\paragraph{What arrives is more than what was sent.}
-A certificate crosses the bridge as arithmetic and arrives as
-geometry.  In the flagship example (\S\ref{sec:flagship}), \M{}'s
-witness is a two-line polynomial identity,
-$1 = (-1)(xz-y^2) + (-y-1)(y-1) + x\cdot z$; the \lean{} theorem it
-yields says that the cone over the twisted cubic and a line have no
-common point over \emph{every} nontrivial commutative
-$\QQ$-algebra --- a quantification \M{} cannot even express.  In the
-Galois example (Appendix~\ref{app:more}), a two-term B\'ezout
-identity arrives as \code{Polynomial.Separable}, a named concept of
-the mathematical library, ready to feed into field theory.  The
-bridge is not a printer: \lean{} adds generality and meaning that
-\M{} does not have, and \M{} supplies discoveries that \lean{} could
-not have found.
-
-\paragraph{The skeptic's contract.}
-M2Lean adopts the classical skeptical stance toward computer
-algebra~\cite{harrison-thery}: architecturally, \M{} plays the role
-of an \emph{untrusted oracle}.  The term is one of art, not a verdict
-on software quality.  Formal proof draws its trust boundary around a
-tiny kernel and places \emph{everything} else outside it---its own
-elaborator, its compilers, the hardware---and \M{}, whose development
-and testing practices are as rigorous as any in mathematical
-software, simply sits on the same side of that line as everything
-else in the world.  Concretely: a result is never accepted because
-\M{} printed \code{true}; it is accepted when \M{} supplies
-\emph{evidence}---cofactors expressing an element in terms of
-generators, change-of-basis data, division quotients for
-S-polynomials---and a small \lean{} checker verifies that evidence.
-For the core checkers we prove soundness theorems in \lean{}: if the
-checker accepts, a genuine \mathlib{} proposition holds.  The
-discipline spares everyone an argument: a defect anywhere in the
-bridge code, the serialization, or even \M{} itself could only cause
-spurious \emph{rejection}, never a false theorem---so the bridge
-never needs to adjudicate \M{}'s correctness at all.
+The current scope is deliberately narrower than the range of objects
+that \M{} can compute.  It covers exact polynomial algebra over
+$\QQ$ and $\mathbb F_p$, two monomial orders, ideals, matrices, graded
+free modules, and seven claim kinds.  A chain-complex claim certifies
+only that consecutive differentials compose to zero; it does not
+certify exactness, minimality, or Betti numbers.  Such boundaries are
+part of the interface rather than implicit assumptions.
 
 \paragraph{Contributions.}
-This paper describes the design and a complete working vertical slice
-of the bridge, the \emph{M2Lean Bridge Core}:
+This paper describes a prototype with the following components.
 
 \begin{enumerate}
-\item \textbf{A versioned interchange protocol} (\S\ref{sec:protocol})
-  for exact commutative algebra over $\QQ$ and prime fields:
-  polynomial rings with normatively specified monomial orders, ideals,
-  matrices, graded free modules, and seven kinds of \emph{claims with
-  evidence}, including negative certificates.  Canonical forms are
-  strict enough that equality of encodings is structural, and
-  consumers reject rather than repair.
-\item \textbf{A \M{} bridge package} (\S\ref{sec:m2}) that exports
-  objects, produces certificates from public \M{} interfaces
-  (including S-pair evidence from an explicit division algorithm),
-  and closes the loop in-session: \code{verifyWithLean~D} spawns the
-  \lean{} verifier on the current document and displays colored
-  per-claim verdicts without leaving \M{}.
-\item \textbf{A \lean{}~4 library} (\S\ref{sec:lean}) with an
-  executable sparse model over any coefficient field (instantiated at
-  $\QQ$ and \code{ZMod p}), a strict protocol validator, certificate
-  checkers, and machine-checked soundness theorems producing genuine
-  \mathlib{} propositions.
-\item \textbf{A formalized Gr\"obner tier}
-  (\S\ref{sec:groebner}): Buchberger's criterion in
-  standard-representation form (\code{buchberger\_criterion}) and the
-  degree-reverse-lexicographic order as a \mathlib{}
-  \code{MonomialOrder} (\code{degRevLex}), both new formalizations and
-  natural \mathlib{} upstream candidates, plus the bridge lemmas
-  connecting them to the executable checker.  Gr\"obner and
-  non-membership certificates over GRevLex are \proved{}, not merely
-  \checked{}.
-\item \textbf{A \code{by macaulay2} tactic} (\S\ref{sec:tactic}):
-  ideal-membership goals are discharged by consulting a live \M{}
-  subprocess and kernel-checking the returned certificate at
-  elaboration time.
-\item \textbf{Flagship theorems and cross-area examples}
-  (\S\ref{sec:flagship}, \S\ref{sec:jacobian}, \S\ref{sec:coloring},
-  Appendix~\ref{app:more}): certified disjointness of the twisted cubic
-  cone and a line over every nontrivial commutative $\QQ$-algebra; a
-  kernel-checked refutation of the Jacobian conjecture as stated, from
-  the July~2026 dimension-three counterexample; a certified
-  \code{¬\,SimpleGraph.Colorable} from a Nullstellensatz infeasibility
-  witness---the nonexistence counterpart to \mathlib{}'s Combinatorial
-  Nullstellensatz; a kernel-checked
-  \code{Polynomial.Separable} for $X^4+1$ over $\QQ$; Gr\"obner, membership, and
-  non-membership over $\mathbb{F}_{101}$; and more --- with an axiom
-  audit showing no additions to \lean{}'s standard three axioms.
-\item \textbf{Adversarial testing and continuous integration}
-  (\S\ref{sec:experiments}): mutated real certificates and malformed
-  documents are rejected with failure-class diagnostics; a GitHub
-  Actions pipeline regenerates every \M{} document, rebuilds the
-  \lean{} library (exercising the tactic against a live \M{}), and
-  replays all 19 checks and the axiom audit on every push.
+\item A versioned protocol and \M{} package for exporting mathematical
+  objects, evidence, and non-semantic provenance, together with an
+  in-session command that invokes the standalone verifier
+  (\S\ref{sec:protocol}--\S\ref{sec:m2}).
+\item A generic sparse polynomial model, executable checkers, and
+  soundness theorems connecting accepted certificates to
+  \mathlib{} objects over $\QQ$ and prime fields (\S\ref{sec:lean}).
+\item A bridge-specific formal development for GRevLex Gr\"obner and
+  non-membership certificates, including a
+  \code{MonomialOrder.degRevLex} instance and agreement lemmas between
+  the protocol comparator and the abstract order
+  (\S\ref{sec:groebner}).
+\item Two consumption interfaces: a standalone runtime verifier and a
+  prototype \code{by macaulay2} tactic that constructs a kernel-checked
+  ideal-membership proof from a live \M{} response
+  (\S\ref{sec:tactic}).
+\item Case studies and an acceptance/rejection evaluation comprising 15 valid
+  and 20 invalid documents, together with theorem examples for the
+  twisted cubic, the Jacobian map, graph colouring, and separability
+  (\S\ref{sec:flagship}--\S\ref{sec:experiments}).
 \end{enumerate}
 
-\paragraph{How to read this paper.}
-Readers coming from \M{} may prefer \S\ref{sec:whatbuys},
-\S\ref{sec:m2}, the flagship walk-through (\S\ref{sec:flagship}), and
-the condensed examples of Appendix~\ref{app:more}; none of these
-require reading \lean{}.  Readers coming from \lean{} will find the
-mathematical content in \S\ref{sec:lean}--\S\ref{sec:tactic},
-especially the Gr\"obner formalization (\S\ref{sec:groebner}).
-Readers inclined to trust neither system should start with the trust
-model (\S\ref{sec:trust}) and the adversarial evaluation
-(\S\ref{sec:experiments}).
-
-Everything is open source; the repository contains the protocol
-specification, both implementations, all fixtures, and scripts that
-reproduce every claim in this paper~\cite{m2lean-repo}.
-
-\section{What this buys you}\label{sec:whatbuys}
-
-\begin{audiencebox}{m2col}
-\textbf{\textcolor{m2col}{If you use Macaulay2.}}\quad
-Your computations become citable.  A session that today ends with a
-printed Betti table can end with one extra call,
-\code{verifyWithLean D}, and produce a certificate that any \lean{}
-installation --- a referee's, a reader's, one running twenty years
-from now --- can re-check, with the coefficient field, monomial
-order, grading, and package versions pinned down machine-readably.
-You never write a line of \lean{}.  The discipline pays even before
-verification: making certificates exportable required exact answers
-to questions that need none inside a single system but must be pinned
-down for results to travel (which GRevLex tie-break convention is in
-force; what the division algorithm guarantees about its quotients),
-and the shared adversarial fixtures will catch any future drift on
-either side.  And the statuses are honest: a
-computation is reported as \emph{computed}, \checked{}, or \proved{},
-never a conflation of the three.
-\end{audiencebox}
-
-\begin{audiencebox}{leancol}
-\textbf{\textcolor{leancol}{If you use Lean.}}\quad
-Thirty years of computational commutative algebra become available to
-your proofs without anyone reimplementing them.  You do not need a
-verified Gr\"obner \emph{engine} to use a Gr\"obner basis: you need a
-witness and a checker, and the checker's soundness theorem makes the
-result a genuine \mathlib{} proposition --- here, span membership,
-ideal equality, non-membership, and vanishing compositions, consumed
-by ordinary theorems with no new axioms and no \code{sorry}.  The
-bridge is also a formalization engine rather than a bypass:
-Buchberger's criterion and the degree-reverse-lexicographic order
-entered \lean{} \emph{because} the checker demanded them
-(\S\ref{sec:groebner}), and both are stated against \mathlib{}'s own
-\code{MonomialOrder} theory for upstreaming.  At the ergonomic end,
-\code{by macaulay2} (\S\ref{sec:tactic}) makes the round trip a
-single tactic call.
-\end{audiencebox}
+The implementation and reproducibility bundle are prepared for public
+release at \url{https://github.com/andrew-tawfeek/M2Lean} concurrently
+with this preprint~\cite{m2lean-repo}.  Until that release is public and
+archived, claims about artifact availability should be read as a
+release plan rather than as an existing archival deposit.
 
 \section{Related work}\label{sec:related}
 
 Skeptical combination of proof assistants and computer algebra goes
 back to Harrison and Th\'ery's HOL--Maple bridge~\cite{harrison-thery},
-which introduced the pattern we follow: let the CAS find an object
-that is expensive to discover but cheap to check (a factorization, an
-antiderivative), and re-verify it in the prover.  Delahaye and
-Mayero connected Coq to Maple for field
+which established the pattern used here: let an external system search
+for an object, then re-check a compact witness in the prover.
+Delahaye and Mayero connected Coq to Maple for field
 simplification~\cite{delahaye-mayero}, and Kaliszyk and Wiedijk
-prototyped a full CAS on top of HOL Light~\cite{kaliszyk-wiedijk}.
-Within \lean{}, the \code{linear\_combination}
-tactic~\cite{linear-combination} checks exactly the kind of cofactor
-certificate our membership checker consumes, and
-\code{polyrith}~\cite{polyrith} obtains those cofactors by calling an
-external Gr\"obner engine---a special case of the M2Lean pattern,
-built directly into a tactic.  M2Lean generalizes this from single
-tactic calls to a versioned, provenance-carrying protocol spanning
-objects (rings, ideals, matrices, complexes) and claim families, with
-an explicitly stratified trust model.
+implemented certified computer algebra on top of HOL
+Light~\cite{kaliszyk-wiedijk}.  CoqEAL instead refines abstract
+algebraic structures to efficient executable representations within
+the prover~\cite{coqeal}.  Certificate reconstruction is also standard
+in SMT solving~\cite{smt-certificates} and sums-of-squares
+automation~\cite{harrison-sos}.
+
+There are several direct predecessors in the Lean ecosystem.  The
+Lean--Mathematica interface of Lewis and Wu exchanges data in both
+directions and uses Mathematica as an untrusted source of proof-search
+guidance~\cite{lewis-wu}.  The \code{linear\_combination} tactic checks
+explicit cofactor identities~\cite{linear-combination}.  The now
+unsupported \code{polyrith} tactic historically obtained such
+identities from an external Sage service and reconstructed a Lean
+proof; the pinned \mathlib{} release instead offers an internal
+\code{grobner} tactic for polynomial consequences~\cite{polyrith}.
+Most closely related, Shen, Guo, Liu, and Zhi provide certificate-based tactics that
+call SageMath or SymPy and support remainder certification, Gr\"obner
+bases, ideal equality, ideal membership and non-membership, and radical
+membership over lexicographically ordered rational polynomial
+rings~\cite{shen-polynomial-tactics}.  M2Lean is therefore not the
+first external-CAS or Gr\"obner tactic for Lean.  Its different focus
+is a Macaulay2-facing, standalone and versioned document protocol that
+also supports M2-initiated workflows, runtime reports, prime fields,
+GRevLex, matrices, and complexes.  Its \code{by macaulay2} tactic is a
+small demonstration of that protocol rather than a replacement for
+the broader tactic suite of Shen et al.
 
 On the formalization side, Buchberger's algorithm was verified in Coq
-by Th\'ery~\cite{thery-buchberger} and Gr\"obner theory is developed
-in Isabelle/HOL~\cite{divason-groebner}; \mathlib{} had no comparable
-development, a gap this work partially closes with a proof of
-Buchberger's criterion and the degree-reverse-lexicographic order
-(\S\ref{sec:groebner}), stated against \mathlib{}'s
-\code{MonomialOrder} theory for upstreaming.  CoqEAL~\cite{coqeal} refines abstract algebraic structures to
-efficient executable ones inside the prover; M2Lean is complementary,
-keeping the heavy computation outside the prover and importing only
-evidence.  Certificate-based cooperation is also standard practice in
-SMT proof reconstruction~\cite{smt-certificates} and in
-sums-of-squares certificates for nonlinear
-arithmetic~\cite{harrison-sos}; M2Lean can be read as bringing that
-discipline to computational commutative algebra, where the natural
-certificates are cofactors, syzygies, and division data~\cite{clo,
-becker-weispfenning}.
+by Th\'ery~\cite{thery-buchberger}, and Isabelle/HOL has an extensive
+Gr\"obner development~\cite{divason-groebner}.  Guo, Shen, Liu, and
+Zhi have since formalized Gr\"obner basis theory in Lean~4, including
+division, Buchberger's criterion, and reduced bases, with parts of the
+infrastructure integrated into \mathlib{}~\cite{guo-groebner-lean}.
+The project-local development in \S\ref{sec:groebner} is narrower: it
+targets the standard-representation certificate emitted by M2Lean,
+constructs the GRevLex order needed for \M{}'s default convention, and
+proves agreement between that abstract order and the executable list
+representation.  The contribution claimed here is this connection to
+the protocol checker, not priority for Buchberger formalization in
+Lean.
 
-\section{Architecture and trust model}\label{sec:trust}
+The natural certificates used below---cofactors, standard
+representations, and division data---are classical~\cite{clo,
+becker-weispfenning}.  What requires engineering is fixing their exact
+cross-system representation and stating precisely when a runtime
+check has, or has not, been promoted to a kernel theorem.
 
-\subsection{Four layers}
+\section{Architecture and assurance}\label{sec:trust}
+
+\subsection{Layers and verification paths}
 
 \begin{center}
 \begin{tabular}{ll}
@@ -417,102 +277,137 @@ becker-weispfenning}.
 layer & realization \\
 \midrule
 interchange representation & \code{protocol/SPEC.md}, JSON schema, fixtures \\
-semantics & \lean{}: sparse model $\to$ \code{MvPolynomial (Fin n) $\QQ$} \\
+semantics & \lean{}: sparse model $\to$ \code{MvPolynomial (Fin n) $\alpha$} \\
 claims and certificates & \lean{} checkers $+$ soundness theorems \\
-user-facing integrations & \M{} package; \code{m2lean-check} CLI \\
+integrations & \M{} package; \code{m2lean-check}; \lean{} tactic/theorems \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-A document travels left to right: \M{} exports objects and claims,
-\lean{} parses and \emph{validates} (arities, canonical scalars,
-dependency order, dimension checks---rejecting, never repairing), then
-runs one checker per claim and emits a verification report; claims
-whose checkers carry soundness theorems can additionally be consumed
-by \lean{} theorem files through the kernel
-(Figure~\ref{fig:flagship} traces one such trip end to end).  Parsing
-is not proof: the semantics layer is what turns byte-level checks
-into mathematics.
+A protocol document can be consumed in two ways.  The standalone
+\emph{runtime path} parses and structurally validates the document,
+runs one compiled Boolean checker per claim, and emits a report.  This
+path is convenient inside a \M{} session and for batch validation, but
+the report is not a proof term.  The \emph{theorem path} embeds selected
+certificate data as \lean{} literals, establishes the concrete Boolean
+acceptance equation with \code{decide +kernel}, and applies a general
+soundness theorem.  The result is a theorem of the corresponding
+\mathlib{} proposition.  Figure~\ref{fig:flagship} shows the latter
+path for the twisted-cubic example.
 
-Throughout the paper, code listings are color-coded by which side of
-the trust boundary owns the artifact:
+The version-controlled \code{json2lean.py} generator used by the
+examples is not verified.  Kernel checking protects the theorem that
+is generated, but it does not by itself prove that the literals are a
+faithful transcription of a particular JSON file.  The checked-in
+release pipeline now regenerates all eleven JSON documents and four
+derived \lean{} data modules, verifies their raw-byte digests against a
+committed SHA-256 ledger, and only then builds the theorem modules.  This
+detects drift
+and establishes deterministic replay through the current generator; it
+does not constitute a semantic verification of the generator itself.
+
+Throughout the paper, code listings are color-coded by their owning
+system:
 \textcolor{m2col}{\textbf{red}} for \M{} (computation and evidence
-generation, outside the kernel-checked base),
+generation),
 \textcolor{protocol}{\textbf{amber}} for protocol documents (the data
 crossing the boundary), and \textcolor{leancol}{\textbf{blue}} for
-\lean{} (validation, checking, and theorems).
+\lean{} artifacts.  These textual labels, not color alone, carry the
+distinction.
 
-\subsection{Trusted and untrusted}
+\subsection{Trust boundary}
 
-``Trusted'' and ``untrusted'' name sides of an architectural
-boundary---what a false theorem could depend on versus what it
-cannot---not degrees of confidence in anyone's code.  The trusted
-base consists of the \lean{} kernel, the definitions giving protocol
-objects mathematical meaning (the sparse model and its
-interpretation), the statements of the soundness theorems, and
-\mathlib{} itself.  Outside the boundary, by design: all of \M{}
-(engine, interpreter, our package), all serialization and transport,
-every field of every document including provenance, and generated
-\lean{} syntax prior to kernel checking.  Placing \M{} outside is
-what makes the bridge \emph{light} for \M{}: nothing about its
-internals needs to be audited, frozen, or re-implemented for the
-theorems to stand.  Checkers may not use
-\code{native\_decide}; certificate checks in theorem files run
-through the kernel (\code{decide +kernel}).
+For a theorem produced by the theorem path, the logical trusted base is
+the \lean{} kernel together with the declared axioms.  The formal
+definitions and theorem statements determine what has actually been
+proved, so matching them to the intended polynomial rings, variable
+order, and geometric interpretation is a separate semantic-review
+obligation.  \mathlib{} and the M2Lean proofs are checked by the kernel;
+they are not additional unverified proof engines.
 
-\subsection{Assurance levels}
+The \M{} engine, M2Lean's \M{} package, serialization, transport, the
+JSON-to-Lean generator, and generated syntax before kernel acceptance
+are outside this logical boundary.  A defect in any of them may cause
+rejection or may supply different data; assuming the checker soundness
+theorem and kernel are correct, it cannot furnish a proof of a false
+formal proposition relative to the declared axioms.  This statement does not apply to a CLI report in
+isolation: relying on that report also relies operationally on the
+parser, compiler, executable, and runtime.  As with any mechanized
+proof, performing a real check additionally assumes a correctly
+executed kernel binary and ordinary hardware and operating-system
+operation.  The logical result is therefore narrower than a claim that
+``no implementation is trusted.''
 
-Every accepted claim carries one of four levels, and the distinction
-is preserved end to end---in the checker code, in the CLI report, and
-in which claims example theorems are permitted to consume:
+The theorem examples avoid \code{native\_decide}; their certificate
+equalities are reduced by the kernel with \code{decide +kernel}.  The
+axiom audit in \S\ref{sec:experiments} reports the declarations on
+which the resulting theorems depend and checks that no project-specific
+axioms were introduced.
+
+\subsection{Report labels and theorem realization}
+
+The protocol defines four report labels.  They classify the operation
+performed and whether a general soundness theorem exists; they do not
+say that a proof term was constructed for the particular report.
 
 \begin{center}
 \begin{tabular}{lp{0.72\textwidth}}
 \toprule
-\textcolor{gray}{\code{transported}} & object parsed and validated; nothing checked \\
-\textcolor{gray!30!black}{\code{reproduced}} & computation re-run and matched; no certificate \\
-\checked{} & certificate verified by an executable checker whose
-mathematical soundness is cited but not yet formalized \\
-\proved{} & as \checked{}, plus a kernel-checked soundness
-theorem: acceptance \emph{implies} the \mathlib{} proposition \\
+report label & meaning \\
+\midrule
+\textcolor{gray}{\code{transported}} & object parsed and structurally validated; no claim checked \\
+\textcolor{gray!30!black}{\code{reproduced}} & computation re-run and matched; no certificate checked \\
+\checked{} & an executable checker accepted; no formal soundness theorem is supplied \\
+\proved{} & an executable checker accepted and a general kernel-checked theorem proves that this checker is sound \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-In the current implementation, polynomial identity, ideal membership,
-span inclusion, chain-complex composition, Gr\"obner bases, and
-non-membership are \proved{} (the latter two over GRevLex, \M{}'s
-default order; their Lex instances remain \checked{} until the Lex
-agreement lemmas are formalized); graded complexes are \checked{}.
-Claims are checked in the coefficient field their ring declares:
-$\QQ$ or, for \code{PrimeField p} documents, \code{ZMod p}.  We regard
-surfacing this distinction as a design contribution rather than a
-confession: systems that blur ``the checker ran'' and ``the theorem
-holds'' invite exactly the silent failures a bridge like this exists
-to eliminate.
+Accepted claims from the implemented verifiers currently emit only
+\checked{} or \proved{}; rejected results carry \code{none}.  The
+\code{transported} and \code{reproduced} labels are
+reserved by the protocol but are not emitted for an implemented claim
+kind in this release.
 
-\section{The interchange protocol}\label{sec:protocol}
+The name \code{proved} is retained because it is the current wire-format
+label, but it is best read as \emph{soundness-formalized}.  A fifth
+status, not encoded in runtime reports, is a \emph{kernel-instantiated
+theorem}: a theorem file has established the concrete check and applied
+the soundness result.  In the current implementation, polynomial
+identity, ideal membership, span inclusion, and chain-complex
+composition have soundness-formalized checkers.  Gr\"obner and
+non-membership checkers do so for GRevLex; their Lex instances and the
+graded-complex checker remain executable-only.  Claims are evaluated in
+the declared coefficient field, either $\QQ$ or \code{ZMod p} after a
+primality check.
 
-The protocol (currently version 0.2.0, the string consumers refuse
-to mismatch) deliberately covers a small, exactly
-specified fragment: coefficients in $\QQ$ (reduced fractions of
-decimal strings; JSON numbers are never used for mathematical data)
+\section{Protocol and implementation}\label{sec:implementation}
+
+\subsection{The interchange protocol}\label{sec:protocol}
+
+The current protocol version is 0.2.0; consumers reject any other
+version string.  It deliberately covers a small, exactly specified
+fragment: coefficients in $\QQ$ (reduced fractions of decimal
+strings; JSON numbers are not used for coefficients or field scalars,
+although exponents and indices are nonnegative JSON integers)
 or $\mathbb{F}_p$ ($p$ verified prime by the consumer); multivariate
 polynomial rings with positional variable identity and one of two
 normatively defined monomial orders (\code{Lex} and \code{GRevLex},
 \M{}'s default); sparse polynomials in canonical form (nonzero
 reduced coefficients, exact arity, strictly decreasing terms); ideals;
 matrices; and graded free modules $\bigoplus_j R(-d_j)$.
+Exact arity is a wire-format invariant: every serialized term has one
+exponent per declared variable.  The checker-level sparse type below
+is intentionally more permissive.
 
-Canonicality is strict enough that equality of encoded polynomials is
-structural equality, which is the base of every checker, and it is
-enforced, not assumed: a document whose terms are misordered for the
-\emph{declared} order is rejected.  This addresses a classical source
-of silent cross-system corruption---graded reverse lexicographic
-order alone admits several incompatible textbook conventions---by
-making the definitions normative in the specification and testing
-both implementations against shared adversarial fixtures ordered
-differently under \code{Lex} and \code{GRevLex}.
+Except for the two raw sides of a \code{PolynomialIdentity} claim, the
+protocol requires canonical polynomials, making equality of valid
+encodings structural.  The validator rejects, for example, object and
+certificate terms that are misordered for the declared order, including
+the element and cofactors of a membership claim.  It also rejects
+duplicate identifiers and collisions between object and claim identifiers.
+Normative order definitions and fixtures distinguish the incompatible
+textbook conventions commonly called graded reverse lexicographic.
 
 A \emph{claim} is a proposition about previously introduced objects
 plus evidence addressed to a specific checker:
@@ -536,44 +431,46 @@ claim kind & proposition & evidence \\
 \end{tabular}
 \end{center}
 
-Documents also carry provenance---producer versions, algorithm names,
-determinism flags---which is displayed for reproducibility but never
-influences acceptance.  The verifier answers with a report document
-whose failure messages distinguish parse, structural, and
-verification failures.
+Documents also carry non-semantic provenance fields such as producer
+versions and algorithm names.  The parser validates the required field
+types and copies the parsed JSON value unchanged as
+\code{inputProvenance} in the output report.  Provenance remains
+informational and does not influence mathematical acceptance: for
+example, \code{deterministic: false} describes certificate discovery,
+not the independent verification of the supplied evidence.  CLI diagnostics
+distinguish parse, structural, and certificate-verification failures;
+top-level parse and structural failures are written to standard error
+rather than represented as JSON reports.
 
-The most interesting evidence format is the Gr\"obner one.  For every
-pair $i<j$ of basis elements whose leading monomials are not coprime,
-the producer must supply quotients $q_1,\dots,q_r$ such that
+The most structured evidence format is the Gr\"obner one.  For every
+pair $i<j$ of basis elements, including pairs with coprime leading
+monomials, the producer must supply quotients $q_1,\dots,q_r$ such that
 \[
   S(b_i,b_j) \;=\; \sum_k q_k\, b_k,
   \qquad
   \lm(q_k b_k) \,\preceq\, \lm\bigl(S(b_i,b_j)\bigr) \text{ whenever } q_k \neq 0,
 \]
-i.e.\ a \emph{standard representation}, for \emph{every} pair
-(coprime pairs may not be omitted: this keeps the soundness proof
-within the standard-representation criterion, without Buchberger's
-first criterion).  By Buchberger's criterion in
-standard-representation form~\cite[Thm.~5.64]{becker-weispfenning}%
-~\cite{buchberger,clo}, verifying these identities and bounds (plus
+i.e.\ a \emph{standard representation}.  Requiring coprime pairs keeps
+the soundness proof within the standard-representation criterion,
+without an appeal to Buchberger's first criterion.  By Buchberger's
+criterion in standard-representation form
+\cite[Thm.~5.64]{becker-weispfenning}, verifying these identities and bounds (plus
 the two span inclusions relating $G$ to the input generators)
-establishes that $G$ is a Gr\"obner basis.  The point of this format
-is that the checker never runs Buchberger's algorithm: it only checks
-polynomial identities and monomial comparisons, both of which reduce
-to the structural equality of canonical forms.  Since the criterion
-itself is now formalized (\S\ref{sec:groebner}), this implication is
-no longer a citation but a kernel-checked theorem.
+establishes that $G$ is a Gr\"obner basis.  The checker does not run
+Buchberger's search; it checks polynomial identities and monomial
+comparisons.  For GRevLex, the connection from this executable check
+to the abstract criterion is a kernel-checked theorem
+(\S\ref{sec:groebner}); for Lex it is not yet formalized.
 
-Negative certificates ride on positive ones: a \code{NonMembership}
-claim references a \code{GroebnerBasis} claim in the same document and
+Non-membership certificates depend on positive ones.  Each such claim
+references a Gr\"obner-basis claim in the same document and
 supplies division data with a nonzero remainder no term of which is
-divisible by a basis leading monomial.  Its soundness genuinely
-\emph{requires} the Gr\"obner property --- a reduced nonzero remainder
-refutes membership only against a true Gr\"obner basis --- which is
-why this claim kind exists at the \proved{} level only on the
-strength of the Buchberger formalization.
+divisible by a basis leading monomial.  A reduced nonzero remainder
+refutes membership only when the divisor family is a Gr\"obner basis,
+so this checker is soundness-formalized for GRevLex and remains
+executable-only for Lex.
 
-\section{The Macaulay2 bridge package}\label{sec:m2}
+\subsection{The Macaulay2 bridge package}\label{sec:m2}
 
 The package \code{m2/M2Lean.m2} exports objects and generates
 certificates using public \M{} interfaces.  From the user's point of
@@ -582,14 +479,16 @@ builds rings and ideals as usual, then attaches claims to a document
 and writes it out.  A complete session certifying a membership looks
 like this:
 
+\noindent\begin{minipage}{\linewidth}
 \begin{lstlisting}[style=m2style]
-loadPackage "M2Lean";
+loadPackage("M2Lean", FileName => "m2/M2Lean.m2");
 R = QQ[x,y];
 I = ideal(x+y, x-y);                        -- the mathematics, as usual
 D = newM2LeanDocument "session-1";
 membershipClaim(D, "mem1", x^3 + y^3, I);   -- computes the cofactors
 writeM2LeanDocument(D, "session-1.json");   -- crosses the boundary
 \end{lstlisting}
+\end{minipage}
 
 \noindent
 The loop closes without leaving the session:
@@ -605,38 +504,37 @@ verifyWithLean D
 the Lean verifier as a subprocess, parses the report, and displays
 colored per-claim verdicts (green \code{proved}, amber \code{checked},
 red rejections), returning the parsed report for programmatic use.
+Here \code{proved} is the runtime label \emph{soundness-formalized}; the
+command does not construct a theorem for \code{mem1}.
 
-\code{membershipClaim} silently does the interesting work: it divides
+\code{membershipClaim} divides
 the element against the ideal's Gr\"obner basis, extracts cofactors,
 re-checks the identity, and serializes everything---generators,
 element, evidence, monomial order, provenance---in the canonical
-forms of \S\ref{sec:protocol}.  Because everything the package
-produces is re-verified, it may freely use any convenient \M{}
-machinery:
+forms of \S\ref{sec:protocol}.  The evidence is subsequently checked,
+so its production may use ordinary \M{} machinery:
 membership cofactors come from matrix division \code{f // gens I}
 against \M{}'s internal Gr\"obner engine, and basis conversion
-witnesses likewise.  The one place where honesty about \emph{how} a
-result was obtained matters is the S-pair evidence: \M{}'s engine
+witnesses likewise.  For S-pair evidence, \M{}'s engine
 does not expose its reduction traces, so the package re-derives the
 quotients with an explicit textbook division algorithm (twenty lines
-of \M{} code) whose loop invariant guarantees the
-standard-representation bound that the protocol demands.  This is a
-small instance of a phenomenon we expect to recur: \emph{certificate
-export forces implicit algorithmic guarantees to become explicit},
-and occasionally forces recomputation in a shape that carries its own
-correctness evidence.
+of \M{} code) and exports the resulting standard-representation data.
+The consumer independently checks both the identity and the required
+leading-monomial bounds.
 
-One subtlety deserves record.  \M{} keeps polynomials sorted in the
-ring's monomial order, so canonical export is free---but only after
-the bridge verifies that \M{}'s order conventions agree with the
-protocol's normative definitions.  Our test suite pins this down
-empirically (e.g.\ $x + y^2z$ must serialize as $[x,\,y^2z]$ under
-\code{Lex} and $[y^2z,\,x]$ under \code{GRevLex}), and the shared
-fixtures would catch any drift on either side.
+\M{} keeps polynomials sorted in the ring's monomial order.  Conformance
+tests compare that ordering with the protocol definition (for example,
+$x+y^2z$ serializes as $[x,y^2z]$ under \code{Lex} and
+$[y^2z,x]$ under \code{GRevLex}).  These are regression tests rather
+than a proof about \M{} internals; a disagreement on a multi-term
+polynomial causes structural rejection.
+The direct-load, package-check, installation, and fresh-load workflows were
+exercised with \M{} versions 1.24.11 and 1.26.06; the measurements in
+\S\ref{sec:experiments} use 1.24.11.
 
-\section{The Lean library}\label{sec:lean}
+\subsection{The Lean library}\label{sec:lean}
 
-\subsection{An executable model and its interpretation}
+\subsubsection{An executable model and its interpretation}
 
 The computational heart is a deliberately small sparse model,
 parameterized over the coefficient field (instantiated at $\QQ$ for
@@ -649,27 +547,30 @@ structure STerm (α : Type*) where
   exps  : List Nat      -- positional; entries beyond the end are 0
 abbrev SPoly (α : Type*) := List (STerm α)
 \end{lstlisting}
-with executable normalization (sort by a fixed total comparator, then
+At this internal level, missing exponent entries are interpreted as
+zero and normalization trims trailing zeros.  Protocol validation
+nevertheless requires the exact wire arity stated above.
+The model provides executable normalization (sort by a fixed total comparator, then
 merge equal exponent vectors and drop zeros, with trailing-zero
 trimming so that paddings of the same monomial coincide), ring
 operations on raw term lists, and the two protocol monomial orders.
-All recursion is structural, for a reason that becomes visible later:
-well-founded recursion does not reduce definitionally, and these
-functions must run \emph{inside the kernel}.
+The normalization routines use structural recursion because the
+well-founded formulations tried during development did not reduce
+suitably when the checks were evaluated inside the kernel.
 
-The semantics is a function
-\code{toMv n : SPoly $\to$ MvPolynomial (Fin n) $\QQ$}
+The semantics is a coefficient-generic function
+\code{toMv n : SPoly $\alpha\to$ MvPolynomial (Fin n) $\alpha$}
 interpreting a term list as a sum of monomials, together with a
 lemma suite proved once and for all: \code{toMv} commutes with
 concatenation, term-wise product, permutation, merging, and
-normalization.  The payoff is the soundness of the two executable
-predicates every checker is built from:
+normalization.  The payoff is the soundness of two core executable
+predicates used throughout the certificate checkers:
 \begin{lstlisting}[style=leanstyle]
 theorem polyEq_sound   (h : polyEq p q = true)     : toMv n p = toMv n q
 theorem polyIsZero_sound (h : polyIsZero p = true) : toMv n p = 0
 \end{lstlisting}
 
-\subsection{Checkers and soundness theorems}
+\subsubsection{Checkers and soundness theorems}
 
 Checkers are Boolean functions on plain sparse data---independent of
 the protocol AST, so the soundness theorems apply to them directly.
@@ -691,32 +592,28 @@ theorem checkComplexPair_sound
 
 theorem no_common_zero
     (h : checkMembership onePoly gs cs = true)
-    {K : Type*} [CommRing K] [Nontrivial K] [Algebra ℚ K]
-    (pt : Fin 4 → K)
+    {K : Type*} [CommRing K] [Nontrivial K] [Algebra α K]
+    (pt : Fin n → K)
     (hv : ∀ g ∈ gs, aeval pt (toMv n g) = 0) : False
 \end{lstlisting}
 
-The last theorem is the abstract half of the flagship: a certificate
-that $1 = \sum c_i g_i$ makes the span the unit ideal, and the unit
-ideal has no common zero in any nontrivial commutative
-$\QQ$-algebra---the certificate refutes points valued in every field
-extension at once, which is exactly the content usually delivered by
-the Nullstellensatz but obtained here by pure algebra from an
-explicit witness.
+The last theorem is the abstract half of the twisted-cubic example: a
+certificate $1=\sum c_i g_i$ makes the span the unit ideal and rules
+out a simultaneous zero in any nontrivial commutative algebra over the
+coefficient field.
 
 The Gr\"obner checker \code{checkGroebner} verifies S-pair coverage,
 each standard representation with its leading-monomial side
-conditions, and both span inclusions.  The implication ``criterion
-verified $\Rightarrow$ Gr\"obner basis'' is not cited here but
-proved: \S\ref{sec:groebner} describes the formalization that puts
-these claims at the \proved{} level --- for every certificate ever
-produced, with no change to \M{} or the protocol.
+conditions, and both span inclusions.  Section~\ref{sec:groebner}
+connects acceptance to the abstract Gr\"obner property for GRevLex.
+The analogous connection for Lex remains unformalized.
 
-\subsection{Kernel-checked certificate consumption}
+\subsubsection{Kernel-checked certificate consumption}
 
-The CLI accepts documents at runtime, but example \emph{theorems}
-embed certificate data as literals (generated deterministically from
-the JSON by a checked-in script) and verify them by kernel reduction:
+The CLI accepts documents at runtime, but selected example
+\emph{theorems} embed certificate data as literals generated by the
+version-controlled, unverified \code{json2lean.py} script and verify
+the check by kernel reduction:
 \begin{lstlisting}[style=leanstyle]
 theorem certificate_checks :
     checkMembership onePoly gens cofactors = true := by decide +kernel
@@ -728,13 +625,16 @@ this reason.  Second, \code{Rat} arithmetic does not reduce in the
 elaborator's evaluator but does in the kernel (which has fast
 arbitrary-precision arithmetic including \code{Nat.gcd}), so
 \code{decide +kernel} rather than plain \code{decide} is required.
+Applying the corresponding soundness theorem to this equality, rather
+than the CLI report, produces the mathematical theorem.
 
-\section{The formalized Gr\"obner tier}\label{sec:groebner}
+\section{Formal soundness for the GRevLex tier}\label{sec:groebner}
 
-The Gr\"obner checker is not merely executable: its acceptance
-\emph{implies} the Gr\"obner property by a kernel-checked proof.
-Three formalizations were required, none previously available in
-\mathlib{}.
+For GRevLex, acceptance of the Gr\"obner checker implies the abstract
+Gr\"obner property by a kernel-checked proof.  This connection uses
+three project-local components.  It overlaps mathematically with the
+broader Lean development of Guo et al.~\cite{guo-groebner-lean}, but is
+organized around M2Lean's executable certificate format.
 
 \paragraph{Buchberger's criterion.}
 We prove the standard-representation form of Buchberger's
@@ -750,24 +650,26 @@ theorem buchberger_criterion
 \end{lstlisting}
 
 \noindent
+Here the displayed $\le$ is componentwise comparison of exponent
+vectors, equivalently divisibility of the leading monomial of $b_i$
+into that of $f$; it is not comparison in the monomial order.
 The proof is the classical one, mechanized: pick a representation of
-`f` minimizing (by well-foundedness of the order) the largest product
+\code{f} minimizing (by well-foundedness of the order) the largest product
 degree $\delta$; if $\delta$ exceeds $\deg f$, the top-degree layer
 cancels and is rewritten through S-polynomial standard
-representations — a cancellation lemma proved by strong induction on
-the size of the layer — yielding a representation with smaller
-$\delta$.  Verified Buchberger developments exist in
-Coq~\cite{thery-buchberger} and Isabelle~\cite{divason-groebner};
-this appears to be the first in \lean{}, and it is deliberately
-stated against \mathlib{}'s own \code{MonomialOrder}/\code{degree}
-theory so it can be upstreamed next to \code{MonomialOrder.div}.
+representations---a cancellation lemma proved by strong induction on
+the size of the layer---yielding a representation with smaller
+$\delta$.  The statement uses \mathlib{}'s
+\code{MonomialOrder}/\code{degree} interface so that it can interoperate
+with library polynomials.
 
 \paragraph{The degree-reverse-lexicographic order.}
-\mathlib{} provides \code{lex} and \code{degLex}, but not \M{}'s
-default order.  We construct \code{MonomialOrder.degRevLex} as a type
+The pinned \mathlib{} release (v4.32.0) provides \code{lex} and
+\code{degLex}, but not \M{}'s default order.  We construct
+\code{MonomialOrder.degRevLex} as a type
 synonym ordered by total degree, ties broken by the \emph{order dual}
-of \mathlib{}'s colexicographic comparison.  One subtlety deserves
-record: unlike \code{degLex}, whose tie-break order is itself
+of \mathlib{}'s colexicographic comparison.  One subtlety is worth
+recording: unlike \code{degLex}, whose tie-break order is itself
 well-founded, plain reverse-lexicographic comparison is \emph{not}
 ($1 \succ x_0 \succ x_0^2 \succ \cdots$), so well-foundedness cannot
 be inherited componentwise.  It holds anyway because degrees are
@@ -776,21 +678,20 @@ variables, only finitely many exponent vectors exist below a given
 degree --- which is why \code{degRevLex} requires \code{[Finite\,$\sigma$]},
 a hypothesis \code{degLex} does not need.
 
-\paragraph{The bridge, and checkers that check what the proof needs.}
+\paragraph{Connecting the checker to the abstract order.}
 Connecting the executable checker to the abstract criterion requires
-agreement lemmas --- the byte-level comparator on exponent lists
+agreement lemmas---the comparator on exponent lists
 computes exactly the \code{degRevLex} relation on interpreted
-monomials --- and a \emph{lead bridge}: the head of the sorted
+monomials---and a \emph{lead bridge}: the head of the sorted
 normalization is the abstract leading term.  The latter would need a
 formal theory of sorting-with-merging; instead, the checker was
-refined to \emph{certify} the facts the proof needs.  A new
+refined to certify the facts the proof needs.  A
 \code{leadOK} check asserts, decidably, that the head strictly
 dominates every other term; soundness then consumes the check rather
-than a meta-theorem about the sorting algorithm.  This ``check what
-the proof needs'' pattern kept the trusted development hundreds of
-lines smaller, at zero cost on honest certificates.  The final
-statements:
+than a meta-theorem about the sorting algorithm.  The resulting
+statements are:
 
+\noindent\begin{minipage}{\linewidth}
 \begin{lstlisting}[style=leanstyle]
 theorem checkGroebner_sound
     (h : checkGroebner n .grevlex gens basis bc gc sps = true) :
@@ -804,20 +705,20 @@ theorem checkNonMembership_sound
     (hnm : checkNonMembership n .grevlex basis f quots r = true) :
     toMv n f ∉ spanOf n basis
 \end{lstlisting}
+\end{minipage}
 
 \noindent
-Both hold over any coefficient field, so they apply verbatim to
-$\mathbb{F}_p$ documents.  The second is the promised negative
-certificate: division data with a nonzero reduced remainder refutes
-membership --- \emph{only} against a proved Gr\"obner basis, which is
-why it ships in the same section.  Certificates over \code{Lex} rings
-remain at \checked{} until the (entirely analogous) Lex agreement
-lemmas are formalized; the assurance level is computed per order and
-displayed per claim.
+Both hold over any coefficient field and therefore apply to
+$\mathbb{F}_p$ documents.  The second uses the first: division data
+with a nonzero reduced remainder refutes membership only against a
+soundness-formalized Gr\"obner basis.  Certificates over \code{Lex}
+rings remain at \checked{} until corresponding order-agreement lemmas
+are proved; the runtime report computes its label per order.
 
 \section{The \code{by macaulay2} tactic}\label{sec:tactic}
 
-The architecture compresses into a single tactic call:
+The protocol can also support a Lean-initiated workflow.  The current
+prototype exposes one such tactic call:
 
 \begin{lstlisting}[style=leanstyle]
 def f : SPoly ℚ := [⟨1, [3, 0]⟩, ⟨1, [0, 3]⟩]          -- x³ + y³
@@ -833,22 +734,27 @@ requesting a membership certificate, runs \code{M2 --script} as a
 subprocess, parses the returned protocol document with the M2Lean
 parser, embeds the cofactors as literals, and closes the goal with
 \code{checkMembership\_sound} applied to a kernel-checked run of the
-certificate checker.  The trust story is unchanged: the answer
-enters the proof as data, not authority --- if anything in the round
-trip misfires (the subprocess, the parse, the transcription), the
-kernel check fails and the tactic reports an error; it can never
-prove a falsehood.  The demo
-file above is built in continuous integration, so every CI run
-exercises a live \lean{}-to-\M{} round trip at elaboration time.
-This prototype handles ground membership goals; goal reflection for
-symbolic polynomials (via \code{ring\_nf}-style normalization, as in
-\code{polyrith}~\cite{polyrith}) is the natural next step.
+certificate checker.  The answer enters the proof as data.  If the
+subprocess, parse, or transcription supplies data that do not establish
+the fixed goal, kernel checking fails; under the trust assumptions of
+\S\ref{sec:trust}, the external process cannot authorize a false goal.
+The demo file is part of the default build graph, so a clean build
+exercises a live \lean{}-to-\M{} round trip at elaboration time.  The
+clean-cache release job exercises this path; an ordinary cache-restored
+CI run is not guaranteed to re-elaborate an unchanged demo module.
+This prototype handles only ground goals already expressed in M2Lean's
+sparse representation.  The tactics of Shen et al. support a broader
+set of reflected polynomial goals~\cite{shen-polynomial-tactics}; M2Lean's
+tactic is included to demonstrate reuse of the document protocol.
 
-\section{The flagship example}\label{sec:flagship}
+\section{Case studies}\label{sec:cases}
 
-The example is chosen to be mathematically recognizable, small enough
-for continuous integration, and structured so that both systems are
-essential (cf.~\cite{eisenbud}).  Let
+\subsection{Twisted-cubic disjointness}\label{sec:flagship}
+
+This standard example is small enough
+that the full certificate can be inspected and replayed in continuous
+integration (cf.~\cite{eisenbud}).  It demonstrates the end-to-end
+semantics; it is not intended as a difficult search problem.  Let
 $R = \QQ[x,y,z,w]$ and let
 \[
 I \;=\; \bigl(xz - y^2,\; xw - yz,\; yw - z^2\bigr)
@@ -865,68 +771,77 @@ the remainder of this section walks the same path in detail.
 \resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[
   font=\scriptsize,
-  node distance=3mm and 5.5mm,
+  node distance=6mm and 7mm,
   stage/.style={draw, rounded corners=2pt, align=center, inner sep=4pt,
-               minimum height=11mm, text width=24.5mm},
+               minimum height=12mm, text width=27mm},
   m2s/.style={stage, draw=m2col, fill=m2col!8, thick},
   ps/.style={stage, draw=protocol, fill=protocol!8, thick},
   ls/.style={stage, draw=leancol, fill=leancol!7, thick},
   outs/.style={stage, draw=okgreen, fill=okgreen!7, thick},
   flow/.style={-{Stealth[length=2.2mm]}, thick, draw=gray!60!black},
-  lbl/.style={font=\scriptsize\bfseries, anchor=south west},
+  lbl/.style={font=\scriptsize\bfseries},
   ]
-  \node[m2s] (s1) {\textbf{1. discover}\\ \code{I + J == 1}\\ (varieties disjoint)};
-  \node[m2s, right=of s1] (s2) {\textbf{2. certify}\\ cofactors with\\ $1 = \sum c_i g_i$};
-  \node[ps, right=of s2] (s3) {\textbf{3. export}\\ \code{flagship.json}\\ (4.8\,kB, 4 claims)};
-  \node[ls, right=of s3] (s4) {\textbf{4. re-verify}\\ \code{decide +kernel}\\ inside the kernel};
-  \node[ls, right=of s4] (s5) {\textbf{5. soundness}\\ \code{no\_common\_zero}\\ applied};
-  \node[outs, right=of s5] (s6) {\textbf{6. theorem}\\ disjoint over every\\ $\QQ$-algebra $K$};
-  \draw[flow] (s1) -- (s2);
-  \draw[flow] (s2) -- (s3);
-  \draw[flow] (s3) -- (s4);
-  \draw[flow] (s4) -- (s5);
-  \draw[flow] (s5) -- (s6);
-  \node[lbl, text=m2col, above=1.5mm of s1.north west] {\M{}};
-  \node[lbl, text=protocol, above=1.5mm of s3.north west] {protocol};
-  \node[lbl, text=leancol, above=1.5mm of s4.north west] {\lean{}};
+  \node[m2s] (m2) {\textbf{Macaulay2}\\ compute cofactors\\ $1=\sum c_i g_i$};
+  \node[ps, right=of m2] (json) {\textbf{protocol document}\\ \code{flagship.json}\\ (5.3\,kB; 5 claims)};
+  \node[ls, above right=4mm and 9mm of json] (cli) {\textbf{runtime path}\\ compiled checker\\ \code{m2lean-check}};
+  \node[outs, right=of cli] (report) {\textbf{report}\\ accepted\\ \code{[proved]} label};
+  \node[ps, below right=4mm and 9mm of json] (literal) {\textbf{theorem input}\\ generated, checked-in\\ certificate literals};
+  \node[ls, right=of literal] (kernel) {\textbf{kernel path}\\ \code{decide +kernel}\\ $+$ soundness theorem};
+  \node[outs, right=of kernel] (theorem) {\textbf{Lean theorem}\\ no common $K$-point\\ for every nontrivial\\ commutative $\QQ$-algebra $K$};
+  \draw[flow] (m2) -- (json);
+  \draw[flow] (json) |- (cli);
+  \draw[flow] (cli) -- (report);
+  \draw[flow] (json) |- (literal);
+  \draw[flow] (literal) -- (kernel);
+  \draw[flow] (kernel) -- (theorem);
+  \begin{scope}[on background layer]
+    \node[draw=leancol, dashed, very thick, rounded corners=3pt,
+          inner sep=3mm, fit=(kernel)(theorem),
+          label={[lbl,text=leancol]above:logical kernel boundary}] {};
+  \end{scope}
+  \node[lbl, text=gray!70!black, above=2mm of cli] {runtime result (not a proof object)};
 \end{tikzpicture}%
 }
-\caption{The flagship path.  \M{} finds the fact and the evidence;
-the protocol carries them as data; \lean{} re-checks the evidence in
-its kernel and turns it into a theorem quantified over every
-nontrivial commutative $\QQ$-algebra.}
+\caption{Two consumers of the same certificate document.  The upper
+lane produces a runtime report; \code{proved} labels the checker's
+formal soundness.  In the lower lane the particular certificate is
+re-evaluated inside the dashed kernel boundary and the soundness
+theorem is applied, producing a theorem.  The \M{} producer, JSON,
+code generator, and generated literals before kernel acceptance are
+outside that logical boundary.}
 \label{fig:flagship}
 \end{figure}
 
-\paragraph{Step 1: discovery (\M{}).}
-The mathematics is encoded in \M{} exactly as a researcher would
-write it by hand:
+\paragraph{Step 1: computation (\M{}).}
+The mathematics is encoded in ordinary \M{} syntax:
 
 \begin{lstlisting}[style=m2style]
 R = QQ[x,y,z,w];
 I = minors(2, matrix{{x,y,z},{y,z,w}});   -- the twisted cubic cone
 J = ideal(y - 1, z, w);                   -- the line {(t,1,0,0)}
-assert(I + J == 1);                       -- discovery: disjoint!
+assert(I + J == 1);                       -- unit ideal
 \end{lstlisting}
 
 \noindent
-This is the kind of fact a researcher finds in seconds and would
-previously have had to re-derive by hand to use in a formal
-development.
+For this small example, the assertion is also easy to verify directly.
+Its role is to provide a transparent query whose algebraic and
+geometric interpretations can be followed through the full pipeline.
 
 \paragraph{Step 2: certificate (\M{}).}
 Five claims are attached to a document and exported:
 
+\noindent\begin{minipage}{\linewidth}
 \begin{lstlisting}[style=m2style]
 D = newM2LeanDocument "flagship";
 unitIdealClaim(D, "unit1", I + J);              -- 1 = sum c_i g_i
 gbClaim(D, "gb1", I);                           -- Buchberger evidence
 C = res comodule I;
-nonMembershipClaim(D, "nm1", x, I);     -- x does NOT vanish on C
+nonMembershipClaim(D, "nm1", x, I);     -- x is nonzero modulo I
 gradedComplexClaim(D, "res1", {C.dd_1, C.dd_2});
 chainComplexClaim(D, "cx1",  {C.dd_1, C.dd_2});
 writeM2LeanDocument(D, "flagship.json");
 \end{lstlisting}
+\end{minipage}
 
 \noindent
 The membership certificate for $1$ carries cofactors---in this
@@ -934,39 +849,46 @@ instance
 \[
 1 \;=\; (-1)\cdot(xz-y^2)\;+\;(-y-1)\cdot(y-1)\;+\;x\cdot z ,
 \]
-a two-line identity that is trivial to check and encapsulates the
-entire computation.  It also exports a Gr\"obner certificate for $I$
-(three S-pairs with standard representations) and the minimal graded
-free resolution of $R/I$, the Eagon--Northcott
-complex~\cite{eagon-northcott}
+a directly checkable identity.  It proves $I+J=R$.  Geometrically,
+$V(I)\cap V(J)=V(I+J)$ has coordinate ring $R/(I+J)=0$, so the closed
+subschemes have empty scheme-theoretic intersection.  Equivalently,
+evaluating the identity at a simultaneous zero in a nontrivial
+commutative $\QQ$-algebra would give $1=0$.
+
+The document also contains a Gr\"obner certificate for $I$ (three
+S-pairs with standard representations) and matrices that \M{} reports
+as the minimal Eagon--Northcott resolution~\cite{eagon-northcott}
 \[
 0 \to R(-3)^2 \xrightarrow{\;d_2\;} R(-2)^3 \xrightarrow{\;d_1\;} R
-\to R/I \to 0,
+\to R/I \to 0.
 \]
-as a graded-complex claim.  The full document is 4.8\,kB of JSON.
+The runtime verifier checks that the displayed matrices form a complex
+and accepts their declared degrees; it does not verify exactness or
+minimality, so it does not certify the Betti numbers.  The complete JSON document is
+5,310 bytes (5.3 decimal kB).
 
 \paragraph{Step 3: verification (\lean{}).}
-\code{m2lean-check} accepts all five claims and reports their
-assurance levels --- note that the Gr\"obner and non-membership
-claims are now \proved{} (\S\ref{sec:groebner}):
+\code{m2lean-check} accepts all five claims.  The last column contains
+runtime report labels in the sense of \S\ref{sec:trust}:
 \begin{center}
 \small
 \begin{tabular}{lll}
 \toprule
-claim & verdict & level \\
+claim & runtime result & report label \\
 \midrule
 \code{unit1} (membership of $1$ in $I{+}J$) & \textcolor{okgreen}{accepted} & \proved{} \\
 \code{gb1} (Gr\"obner basis of $I$) & \textcolor{okgreen}{accepted} & \proved{} \\
 \code{nm1} ($x \notin I$) & \textcolor{okgreen}{accepted} & \proved{} \\
-\code{res1} (graded complex, Betti data $1,3,2$) & \textcolor{okgreen}{accepted} & \checked{} \\
+\code{res1} (composition and degree checks) & \textcolor{okgreen}{accepted} & \checked{} \\
 \code{cx1} ($d_1 d_2 = 0$) & \textcolor{okgreen}{accepted} & \proved{} \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\paragraph{Step 4: mathematics (\lean{}).}
-The example file re-checks the certificate in the kernel and applies
-the soundness theorems, yielding (verbatim from the repository):
+\paragraph{Step 4: theorem realization (\lean{}).}
+The example file re-checks the unit-ideal certificate and the
+chain-complex computation in the kernel and applies their soundness theorems,
+yielding (with type annotations elided):
 
 \begin{lstlisting}[style=leanstyle]
 theorem twisted_cubic_cone_misses_line
@@ -980,55 +902,42 @@ theorem twisted_cubic_cone_misses_line
     (h6 : aeval p (X 3) = 0) : False
 
 theorem resolution_composes_to_zero :
-    toMatrix 4 1 3 resD1 * toMatrix 4 3 2 resD2 = 0
+    toMatrix 4 1 3 cx1_d1 * toMatrix 4 3 2 cx1_d2 = 0
 \end{lstlisting}
 
-The first statement quantifies over every nontrivial commutative
-$\QQ$-algebra: no point of any base change lies on both varieties.
-\M{} computed; the certificate crossed the boundary; \lean{} supplied
-semantics and generality.  Neither system alone produces this
-artifact: \M{} has no notion of ``for all $\QQ$-algebras $K$,'' and
-\lean{} would not have found the cofactors.  An axiom audit confirms
-that these theorems depend on exactly \lean{}'s three standard axioms
-(\code{propext}, \code{Classical.choice}, \code{Quot.sound})---no
+The first statement says that there is no common $K$-valued point for
+any nontrivial commutative $\QQ$-algebra $K$.  The finite identity over
+$\QQ$ is interpreted uniformly through the soundness theorem.  The
+example's purpose is this explicit semantic passage, not the difficulty
+of finding these particular cofactors.  An axiom audit reports that
+the declarations used are
+\code{propext}, \code{Classical.choice}, and \code{Quot.sound}---no
 \code{sorry}, no project-specific axioms, no \code{native\_decide}.
 
-\section{A second flagship: the Jacobian conjecture}\label{sec:jacobian}
+\subsection{The 2026 Jacobian counterexample}\label{sec:jacobian}
 
-The flagship of \S\ref{sec:flagship} was chosen for pedagogy; this one
-was chosen by events.  The \emph{Jacobian conjecture} (O.-H.~Keller,
-1939~\cite{keller1939}) asserts that a polynomial map
-$F:\CC^n\to\CC^n$ whose Jacobian determinant is a nonzero constant has
-a polynomial inverse.  It had been open for every $n\ge 2$ for
-eighty-seven years and is among the best-known problems in the
-subject.  On 19~July 2026 Levent Alp\"oge announced an explicit
-counterexample in dimension three, found with the assistance of
-Anthropic's Claude~Fable~5 model after Akhil Mathew proposed the
-search~\cite{alpoge-jacobian,newscientist-jacobian}.  Because the
-witness is a handful of polynomial evaluations it was independently
-checked by many mathematicians within a
-day~\cite{newscientist-jacobian,sbseminar-jacobian}, and T.~Tao
-related it to the classical degree reductions of
-Bass--Connell--Wright~\cite{bass-connell-wright} and
-Yagzhev~\cite{yagzhev1980}.
+The Jacobian conjecture, introduced by Keller~\cite{keller1939},
+asserts that a polynomial map $F:\CC^n\to\CC^n$ with nonzero constant
+Jacobian determinant has a polynomial inverse.  In July 2026,
+Alp\"oge announced the following dimension-three counterexample
+\cite{alpoge-jacobian}.  Contemporaneous Isabelle/HOL and independent
+Lean developments also formalized the determinant and collision, with
+the Isabelle entry proving the implication for the classical
+conjecture~\cite{jacobian-afp,jacobian-lean-independent}.  The present case study
+has the narrower purpose of recording what the M2Lean artifact checks
+and how those checks enter its \lean{} theorem.
 
-This is precisely the situation M2Lean is built for, and it exercises
-the skeptic's contract of \S\ref{sec:intro} at full strength: the
-bridge does not care who---or what---produced the map, nor how.  The
-assertion that it \emph{is} a counterexample splits into two exact,
-independently re-verifiable facts: a nonzero-constant Jacobian
-determinant (a polynomial identity) and a failure of injectivity (a
-finite collision of rational points).  Provenance never enters; what
-\lean{} certifies rests on its kernel alone.  The map is
+The mathematical verification separates into a constant-Jacobian
+identity and a collision of rational points.  The map is
 \begin{align*}
 F(x,y,z)=\bigl(~\!& (1+xy)^3 z + y^2 (1+xy)(4+3xy),\\
                  & y + 3x(1+xy)^2 z + 3x y^2 (4+3xy),\\
                  & 2x - 3x^2 y - x^3 z ~\!\bigr).
 \end{align*}
 
-\paragraph{Step 1: the hypothesis holds (\M{}).}
-\M{} forms the Jacobian and watches its determinant collapse to a
-constant---the conjecture's hypothesis, satisfied:
+\paragraph{Protocol checks.}
+The \M{} script forms the Jacobian, computes its determinant, and
+exports the equality with $-2$ as a polynomial-identity claim:
 \begin{lstlisting}[style=m2style]
 R = QQ[x,y,z];
 F = {(1+x*y)^3*z + y^2*(1+x*y)*(4+3*x*y),
@@ -1039,291 +948,330 @@ assert(det Jac == -2);              -- nonzero constant Jacobian
 polynomialIdentityClaim(D, "detJac", det Jac, -2_R);
 \end{lstlisting}
 
-\paragraph{Step 2: the conclusion fails (\M{}).}
+At the protocol level, \code{detJac} checks only that the serialized
+polynomial equals $-2$; it does not certify that this polynomial was
+obtained by differentiating the displayed map.  The semantic link to
+$F$ is established separately in the theorem file by defining the
+Jacobian with \code{pderiv} and proving \code{jacF\_det}.
+
 The three distinct points $P_0=(0,0,-\tfrac14)$,
 $P_1=(1,-\tfrac32,\tfrac{13}2)$, and $P_2=(-1,\tfrac32,\tfrac{13}2)$
 all map to $(-\tfrac14,0,0)$, so $F$ is not injective and has no
-inverse of any kind.  Each component value $F_i(P)=v_i$ is exported as
-a membership in the point's maximal ideal
+polynomial inverse.  These points are supplied explicitly by the
+example script; this artifact does not document or certify the process
+by which they were found.  Each component value $F_i(P)=v_i$ is
+exported as a membership in the point ideal
 $\mathfrak m_P=(x-a,\,y-b,\,z-c)$: the cofactor identity
 $F_i-v_i = A\,(x-a)+B\,(y-b)+C\,(z-c)$, evaluated at $P$, kills the
 ideal part and forces $F_i(P)=v_i$.  Nine such membership claims
 (three points $\times$ three coordinates) together with the
-determinant identity form a $12.4$\,kB document; \code{m2lean-check}
-reports all ten claims \proved{}.
+determinant identity form a 12,652-byte document (12.7 decimal kB).
+The runtime verifier accepts all ten claims with the \proved{} report
+label.
 
-\paragraph{Step 3: the theorem (\lean{}).}
-\lean{} re-checks the nine certificates in its kernel, proves the
-Jacobian determinant constant directly over \mathlib{}'s
-\code{MvPolynomial} via \code{pderiv}, and assembles the refutation
-(verbatim from the repository):
+\paragraph{Theorem realization and dependency ledger.}
+The theorem file contains four logically distinct developments:
 \begin{lstlisting}[style=leanstyle]
-theorem jacF_det : jacF.det = -2         -- the hypothesis, in mathlib
+theorem jacF_det : jacF.det = -2
 
-theorem F_not_injective :                -- the conclusion: F is not injective
+theorem F_not_injective :
     ¬ Function.Injective (fun p : Fin 3 → ℚ => fun i => aeval p (F i))
 
 theorem jacobian_conjecture_false : ¬ JacobianConjecture 3
+
+theorem polynomial_jacobian_conjecture_false :
+    ¬ PolynomialJacobianConjecture 3
 \end{lstlisting}
-Here \code{JacobianConjecture n} is the injective formulation over
-$\QQ$---if the Jacobian determinant is a nonzero constant, the induced
-self-map of $\QQ^n$ is injective---so refuting even injectivity is the
-strongest possible counterexample.  The non-injectivity half is \M{}'s
-discovery, and the asymmetry of \S\ref{sec:intro} is stark: \lean{} was
-never asked to \emph{search} for the colliding points---the hard
-part---and need only \emph{check} that they collide, which its kernel
-does in a handful of evaluations.  \M{}'s nine membership certificates
-are the evidence that crosses the bridge: \code{m2lean-check} accepts
-them, and the theorem file re-checks them in the kernel
-(\code{certificate\_checks}) and promotes them to genuine
-ideal-membership propositions through the membership soundness theorem
-(\code{collision\_certified}, \S\ref{sec:lean}).  As with the
-flagship, an axiom audit confirms \code{jacobian\_conjecture\_false}
-and its lemmas depend on exactly \lean{}'s three standard axioms---no
-\code{sorry}, no project-specific axioms, no \code{native\_decide}.
-The plane case $n=2$ remains open; the counterexample extends to every
-$n\ge 3$ by adjoining identity coordinates.  We take no view on the
-mathematics beyond what we re-derived: the point is that a claimed
-counterexample of real consequence became, through the bridge, a
-kernel-checked \lean{} theorem in an afternoon, its correctness
-resting on nothing but \lean{}'s kernel.
 
-\section{Certifying nonexistence: graph colouring}\label{sec:coloring}
+The determinant theorem expands \code{pderiv} and closes the resulting
+identity with \code{ring}.  Separately,
+\code{certificate\_checks} re-evaluates all nine exported membership
+certificates in the kernel.  The example applies
+\code{checkMembership\_sound} to all nine in
+\code{collision\_certified}; that conjunction is not used by the final
+non-injectivity proof.  Instead, \code{F\_not\_injective} evaluates the
+displayed formula at $P_1$ and $P_2$ directly with \code{norm\_num} and
+uses their unequal first coordinates.  Thus the fully promoted
+certificate path and the final collision proof are parallel validation
+paths in the current file; it would be inaccurate to describe the latter
+as derived from all nine memberships.
 
-The examples so far certify that something \emph{holds}.  A certificate
-can equally prove that something is \emph{impossible}, and graph
-colouring is the sharpest illustration.  Fix a graph $G$ and three
-colours.  Following De Loera--Lee--Malkin--Margulies~\cite{nulla},
-encode a colouring algebraically: one variable $x_v$ per vertex, a
-vertex relation $x_v^3-1$ (``the colour is a cube root of unity''), and
-for each edge an edge relation
-$x_u^2+x_ux_v+x_v^2 = (x_u^3-x_v^3)/(x_u-x_v)$ (``adjacent colours
-differ'').  A proper $3$-colouring is exactly a common zero of these
-polynomials, so
+The project-local definition \code{JacobianConjecture n} states the
+rational-point injectivity consequence.  A second definition,
+\code{PolynomialJacobianConjecture n}, requires a two-sided inverse whose
+coordinates are polynomials over $\QQ$ and whose inverse identities hold
+on every rational point.  The file refutes both formulations: a left
+inverse alone would force injectivity, contradicting the displayed
+rational collision.  These are statements over $\QQ$, not definitionally
+the usual formulation over $\CC$.  Mathematically, the same rational
+collision persists after scalar extension and therefore also rules out a
+polynomial inverse over $\CC$; that scalar-extension implication is not
+formalized in this file.  The Lean file proves the dimension-three
+statements only; extension to higher dimensions by adjoining identity
+coordinates is likewise not formalized there.  The axiom audit for these declarations reports
+\code{propext}, \code{Classical.choice}, and \code{Quot.sound}, with no
+project-specific axiom, \code{sorry}, or \code{native\_decide}.
+
+\subsection{Graph non-colourability}\label{sec:coloring}
+
+Ideal-membership certificates can also establish infeasibility.  For
+a graph $G$, following De Loera--Lee--Malkin--Margulies~\cite{nulla},
+introduce one variable $x_v$ per vertex, the relations $x_v^3-1$, and
+for every edge $uv$ the relation
+$x_u^2+x_ux_v+x_v^2$; write $\mathrm{col}(G)$ for the ideal generated
+by these polynomials.  Interpreting colours as the three cube roots of
+unity identifies a proper $3$-colouring with a common zero of this
+system over $\CC$.  Consequently,
 \[
   G \text{ is $3$-colourable} \iff 1 \notin \mathrm{col}(G),
 \]
 and a Nullstellensatz certificate $1 = \sum_i c_i g_i$ is a proof of
 \emph{non}-colourability.
 
-\paragraph{A clean contrast with \mathlib{}.}
-\mathlib{} already contains Alon's \emph{Combinatorial
-Nullstellensatz}~\cite{alon-cn}
-(\code{Mathlib.Combinatorics.Nullstellensatz}), the top-coefficient
-nonvanishing criterion that is the standard algebraic tool for proving
-that colourings (and many other combinatorial objects) \emph{exist}; it
-has no counterpart for proving that they do not.  M2Lean supplies exactly that
-missing direction and lands on the same named predicate: from \M{}'s
-certificate, \lean{} concludes \code{¬ SimpleGraph.Colorable G 3}.  The
-two are complementary---existence by non-vanishing, nonexistence by
-ideal membership.
+\mathlib{} contains Alon's Combinatorial Nullstellensatz
+\cite{alon-cn}; the present example instead uses a unit-ideal witness
+to establish nonexistence and connects the result to \mathlib{}'s
+graph-colourability predicate.
 
-\paragraph{Encoding correctness (\lean{}).}
-This bridge does more than re-check arithmetic: it must connect the
-ideal membership to the combinatorial predicate.  \lean{} proves, once
-and generically, that a proper $3$-colouring $c$ furnishes the common
-zero $x_v = \zeta^{c(v)}$ (with $\zeta$ a primitive cube root of unity
-in $\CC$) of every generator---a vertex relation vanishes because
+\paragraph{The kernel theorem.}
+The vanishing lemmas are polymorphic over vertex sets \code{Fin n}, but
+the current Lean development specializes the serialized generators and
+graph-to-ideal correspondence to the odd wheel $W_5$ obtained by
+adjoining a hub to $C_5$, represented as a concrete graph on
+\code{Fin 6}.  It does not yet provide a generic graph-to-ideal
+construction.  Given a
+proper colouring $c$, the proof constructs the point
+$x_v=\zeta^{c(v)}$, where $\zeta$ is a primitive cube root of unity in
+$\CC$.  A vertex relation vanishes because
 $(\zeta^{c(v)})^3=1$, an edge relation because
 $\zeta^{3c(u)}=\zeta^{3c(v)}=1$ while $\zeta^{c(u)}\ne\zeta^{c(v)}$.
-Feeding this zero to \code{no\_common\_zero} against \M{}'s
-kernel-checked certificate is a contradiction, yielding (verbatim):
+The theorem then supplies this common zero to
+\code{no\_common\_zero}, contradicting the kernel-checked unit-ideal
+certificate:
 \begin{lstlisting}[style=leanstyle]
 theorem wheel5_not_three_colorable : ¬ W.Colorable 3
 \end{lstlisting}
-for the odd wheel $W_5$, with an axiom audit confirming \lean{}'s three
-standard axioms and no \code{sorry}.
+The axiom audit reports the same three standard axioms as in the other
+theorem examples and no project-specific axiom or \code{sorry}.
 
-\paragraph{Finding is hard; checking stays easy---quantitatively.}
-Deciding $3$-colourability is \textsf{NP}-complete, and the
-Nullstellensatz certificate grows with the instance; yet every
-certificate is checked by the same trivial polynomial arithmetic.  The
-table makes the asymmetry concrete, from the clique $K_4$ to the
-\emph{Gr\"otzsch graph}---the Mycielskian of the $5$-cycle~\cite{mycielski},
-the smallest triangle-free graph that is not $3$-colourable, where no
-clique forces the fourth colour so the obstruction is genuinely global:
+\paragraph{Three concrete documents.}
+The artifact also contains unit-ideal documents for $K_4$ and the
+Gr\"otzsch graph, the Mycielskian of the $5$-cycle~\cite{mycielski}.
+The table reports total JSON size and end-to-end runtime-verifier wall
+time; each timing includes executable startup, parsing, validation,
+checking, and report construction.
 \begin{center}
 \small
 \begin{tabular}{lrrrr}
 \toprule
-graph & vertices & edges & certificate (kB) & check (ms) \\
+graph & vertices & edges & document (kB) & runtime (ms) \\
 \midrule
-$K_4$ (clique)             & 4  & 6  & 4.5 & 31 \\
-$W_5$ (odd wheel)          & 6  & 10 & 8.0 & 32 \\
-Gr\"otzsch (triangle-free) & 11 & 20 & 112 & 772 \\
+$K_4$                       & 4  & 6  & 4.5 & 32 \\
+$W_5$                       & 6  & 10 & 8.0 & 34 \\
+Gr\"otzsch                  & 11 & 20 & 114.5 & 799 \\
 \bottomrule
 \end{tabular}
 \end{center}
-The witness grows $25\times$; verification stays under a second.  The
-Gr\"otzsch certificate is verified by \code{m2lean-check}
-(\code{examples/coloring/}); $W_5$ additionally carries the full
-kernel-checked \lean{} theorem above.
+These three observations are a case study, not a scaling law.  All
+three documents are accepted by \code{m2lean-check}; only $W_5$ is
+connected in the repository to a kernel-checked non-colourability
+theorem.  For $K_4$ and the Gr\"otzsch graph, the artifact establishes
+the unit-ideal identities at runtime, while the combinatorial
+conclusion relies on the classical encoding argument above.
 
-\section{Adversarial evaluation}\label{sec:experiments}
+\section{Evaluation}\label{sec:experiments}
 
-The acceptance criterion that matters most for a bridge is not that
-honest certificates pass but that dishonest ones fail.  The test
-suite (\code{scripts/run-checks.sh}) exercises both directions over
-fourteen valid documents (eleven \M{}-generated, including the Jacobian
-counterexample of \S\ref{sec:jacobian}, the colouring certificates of
-\S\ref{sec:coloring}, and the cross-area examples of
-Appendix~\ref{app:more}) and eight corrupted or malformed ones; the
-corrupted certificates are obtained by \emph{mutating real \M{}
-output}, not by constructing strawmen:
+The evaluation asks three bounded questions: whether valid example
+documents are accepted, whether representative certificate and format
+defects are rejected, and what the current end-to-end costs are on the
+included instances.  It does not attempt to establish asymptotic or
+research-scale performance.
+
+\subsection{Acceptance and rejection tests}
+
+The script \code{scripts/run-checks.sh} regenerates eleven example
+documents with \M{}, checks those and four valid protocol fixtures,
+and expects rejection of 20 invalid fixtures.  The invalid set
+combines mutations of generated-style certificates with deliberately
+handwritten structural and parsing cases; it should not be read as a
+statistical fault model.  All 35 document expectations pass:
 
 \begin{center}
 \small
-\begin{tabular}{lll}
+\begin{tabular}{@{}lp{0.38\textwidth}l@{}}
 \toprule
-document & defect & outcome \\
+fixture or group & injected defect & observed result \\
 \midrule
-14 valid documents & --- & all \textcolor{okgreen}{accepted} \\
-\code{corrupt-membership} & wrong cofactor & \textcolor{badred}{rejected} (verification) \\
-\code{corrupt-gb-quotient} & S-pair quotient scaled by 2 & \textcolor{badred}{rejected} (verification) \\
-\code{corrupt-gb-missing-spair} & required S-pair deleted & \textcolor{badred}{rejected} (verification) \\
-\code{corrupt-complex} & differential entry altered & \textcolor{badred}{rejected} (verification) \\
-\code{corrupt-nonmembership} & remainder zeroed out & \textcolor{badred}{rejected} (verification) \\
-\code{noncanonical-unsorted} & terms misordered for ring order & \textcolor{badred}{rejected} (structural) \\
-\code{structure-bad-arity} & exponent arity mismatch & \textcolor{badred}{rejected} (structural) \\
-\code{parse-truncated} & invalid JSON & \textcolor{badred}{rejected} (parse) \\
+15 valid documents & none & all \textcolor{okgreen}{accepted} \\
+six \code{corrupt-*} fixtures & false certificate evidence & \textcolor{badred}{verification rejection} \\
+five \code{noncanonical-*} fixtures & invalid canonical encoding & \textcolor{badred}{structural rejection} \\
+eight \code{structure-*} fixtures & invalid references, IDs, domain, order, or provenance & \textcolor{badred}{structural rejection} \\
+\code{parse-truncated} & truncated JSON & \textcolor{badred}{parse rejection} \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\paragraph{Cost.}
-The finding-is-hard/checking-is-easy asymmetry of
-\S\ref{sec:intro} is visible in measurements (one laptop core,
-median of three runs):
+The harness asserts both the documented exit code and the diagnostic
+class (parse, structural, or verification).  It also checks that a valid
+document marked \code{deterministic: false} is accepted with \proved{}
+assurance and that its input provenance survives the report round trip.
+More systematic property-based mutation remains future evaluation work.
+
+\subsection{Measurement method and results}
+
+Measurements were taken under WSL~2 on Debian~13 with an AMD Ryzen~7
+9800X3D, 31.7\,GB RAM, \M{}~1.24.11, and \lean{}~4.32.0.  The pinned
+\mathlib{} commit was
+\begin{center}\small
+\code{81a5d257c8e410db227a6665ed08f64fea08e997}.
+\end{center}
+For each runtime-verifier row, the executable was run once to warm
+caches and then timed three times; the table reports the median wall
+time.  The benchmark is sequential but was not CPU-pinned.
+Runtime-verifier measurements include process startup,
+JSON parsing, validation, checking, and report construction.  Sizes
+are total JSON document sizes in decimal kilobytes.  The current
+benchmark driver retains every warm-up and timed sample, command,
+standard output and error, exit status, peak resident memory, environment,
+and source commit in schema-validated JSON.
 
 \begin{center}
 \small
 \begin{tabular}{lrrr}
 \toprule
-document & claims & size (kB) & verification (ms) \\
+document & claims & size (kB) & runtime (ms) \\
 \midrule
-\code{flagship} (unit ideal, GB, non-mem., resolution) & 5 & 5.3 & 33 \\
-\code{jacobian} (Jacobian det.\ $+$ 9 collision certificates) & 10 & 12.4 & 34 \\
-\code{coloring} ($K_4$ Nullstellensatz witness) & 1 & 4.5 & 32 \\
-\code{polynomial} (identity, membership, span $\times 2$) & 4 & 2.5 & 31 \\
-\code{primefield} (GB, membership, non-mem.\ over $\mathbb{F}_{101}$) & 3 & 2.3 & 34 \\
-\code{galois} ($\Phi_8$ separability witness) & 1 & 0.9 & 31 \\
+\code{flagship} & 5 & 5.3 & 35 \\
+\code{jacobian} & 10 & 12.7 & 32 \\
+\code{grotzsch} & 1 & 114.5 & 799 \\
+\code{wheel5} & 1 & 8.0 & 34 \\
+\code{primefield} & 3 & 2.3 & 31 \\
+\code{coloring} ($K_4$) & 1 & 4.5 & 32 \\
+\code{polynomial} & 4 & 2.5 & 31 \\
+\code{galois} & 1 & 0.9 & 31 \\
+\code{toric} & 1 & 1.1 & 30 \\
+\code{stanley-reisner} & 2 & 1.2 & 30 \\
+\code{symmetric} & 1 & 0.8 & 31 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-{\sloppy
-Verification wall time is dominated by process startup --- the
-checking itself is sub-millisecond at this scale --- and generating
-\emph{all} documents with \M{} takes under a second
-(\code{scripts/bench.sh}).  Kernel-level re-verification is the
-expensive tier, and still cheap: within a warm build, elaborating the
-Galois theorem file (certificate check plus the transfer to
-\code{Polynomial.Separable}) takes $2.9$\,s, and the flagship file
-(two kernel certificate checks plus the interpretation lemmas)
-$5.6$\,s; and the Jacobian file (nine kernel certificate checks, the
-determinant computation over \code{MvPolynomial}, and the soundness
-transfer) $4.3$\,s.  At this scale, certificates are the same order of
-magnitude as the answers they certify; how they grow is a limitation
-discussed in \S\ref{sec:roadmap}.  The whole pipeline runs in
-continuous integration on every push: a GitHub Actions job installs
-\M{} and \lean{}, rebuilds the library (including the
-\code{by macaulay2} demo, which spawns a live \M{} process during
-elaboration), regenerates all documents, replays the 22
-accept/reject checks, and greps the axiom audit.\par}
+The single-run generation observations from the development host were
+347\,ms for \path{flagship.m2}, 310\,ms
+for \path{jacobian.m2}, 1,250\,ms for \path{coloring.m2} (two
+documents), and 419\,ms for \path{appendix.m2} (six documents).  These
+figures include \M{} startup and file emission and are reported as
+descriptive observations, not summary statistics; the current
+\path{scripts/bench.sh} can repeat all five generation cases and retain
+their raw samples.  The data do not isolate polynomial-checker
+cost from process and parser overhead, so no sub-millisecond checker
+claim is made.
 
-\section{What each system gains}\label{sec:gains}
+Kernel theorem elaboration is a different workload.  In a separate
+manual measurement after a warm build, each of four checked-in theorem
+files was elaborated three times.  The median wall times were
+6.51\,s (twisted cubic), 4.64\,s (Jacobian),
+9.01\,s ($W_5$ colouring), and 3.63\,s (separability).  These timings
+include elaboration of the entire file, not only certificate
+reduction.  The measurements show feasibility for the included
+instances; the eleven documents are too few and too heterogeneous to
+support a general scaling claim.  The checked-in benchmark driver now
+reproduces this four-file experiment with one warm-up and three retained
+samples per file.  A validated record from the final clean release commit
+is still required before these measurements become archival evidence.
 
-\paragraph{For \lean{}.}
-Immediately: a disciplined way to import serious computation.  The
-pattern ``\M{} finds the witness, a small checker consumes it''
-extends well beyond membership---elimination witnesses,
-Hilbert-series data, syzygies, radical membership via Rabinowitsch,
-regular sequences---and each new certificate kind is a checker plus a
-soundness theorem, not a verified reimplementation of a CAS.  Less
-obviously: the checkers themselves generate a formalization agenda
-ordered by computational relevance.  Our Gr\"obner checker is an
-exact, executable statement of what remains to be proved
-(Buchberger's criterion for standard representations over the two
-protocol orders); formalizing against a fixed executable target is a
-better-posed task than formalizing a textbook chapter.
+\subsection{Reproducibility scope}
 
-\paragraph{For \M{}.}
-The bridge is also a mirror.  Exporting certificates forced precise
-answers to questions that are usually implicit: exactly which
-monomial order convention is in force, what the division algorithm
-guarantees about its quotients, which results are deterministic.  We
-expect the deeper influence to run through specifications:
-``\code{certify gb I}'' gives \M{} users a machine-checkable notion
-of what \code{gb} promises, distinct from what the implementation
-happens to do---and a user-visible difference between ``computed''
-and ``certified'' creates the incentive for algorithms to expose the
-evidence they already possess internally (change matrices and
-reduction traces that engines routinely compute and discard).
+The checked-in continuous-integration workflow first verifies the fifteen
+shipped generated artifacts and then builds only the runtime verifier.  It
+regenerates eleven JSON examples and four \code{*Data.lean} modules, verifies
+them again against a committed SHA-256 ledger, applies the JSON Schema as a
+prefilter, executes all 35 acceptance and rejection expectations, builds the
+complete \lean{} library, and runs the axiom audit.  Thus the mechanical
+JSON-to-theorem replay is now a release gate,
+subject to the unverified-generator qualification above.  A separate
+tagged or manually dispatched job omits restoration of project build state
+and records raw generation, verification, memory, and theorem-elaboration
+measurements.  At the time of writing, however, the manifest's release
+commit, archival identifier, and clean-commit benchmark record remain unset;
+those are release requirements rather than claims already satisfied by
+this paper.
 
 \section{Limitations and roadmap}\label{sec:roadmap}
 
-The current fragment is exactly what the trust model can carry today,
-and its edges are documented rather than blurred.
-\code{ChainComplex} certifies a complex, not exactness---the
-specification is explicit that $d_{i}d_{i+1}=0$ establishes only a
-complex, and exactness certificates (via certified syzygy claims, or
-rank and depth data in the style of Buchsbaum--Eisenbud) are the
-designed next step of the homological tier.  Graded claims and
-Lex-order Gr\"obner claims are \checked{}, not \proved{}: the graded
-semantics and the Lex agreement lemmas (a smaller sibling of the
-GRevLex bridge of \S\ref{sec:groebner}) remain to be formalized.
-Certificates are eagerly embedded rather than streamed, which will
-not survive contact with large computations without a compact
-encoding and reflective checkers.  The \code{by macaulay2} tactic
-handles ground membership goals; reflecting symbolic goals is open.
+The prototype has four main limitations.  First, assurance is
+heterogeneous.  GRevLex Gr\"obner and non-membership checks have
+soundness theorems, whereas their Lex instances and the
+graded-complex checker are executable-only.  A \code{ChainComplex}
+claim proves only $d_i d_{i+1}=0$; neither it nor the graded claim
+establishes exactness, minimality, cokernel identification, or Betti
+numbers.
 
-\paragraph{What about \emph{your} computation?}
-The examples in this paper are deliberately CI-sized; a reader with a
-research-scale computation should calibrate.  What scales today:
-membership-style certificates, whose size tracks the cofactors (often
-comparable to the Gr\"obner basis itself), and everything on the \M{}
-side, which is just ordinary \M{} plus serialization.  What does not
-yet: Gr\"obner certificates carry one standard representation per
-S-pair, so for large bases the evidence can dwarf the answer ---
-the classical certificate-explosion risk --- and the current JSON
-encoding and eagerly-embedded kernel checks would both need the
-planned compact encoding, streaming, and reflective checking before a
-hundred-generator ideal is comfortable.  Nothing in the
-\emph{architecture} obstructs this: the protocol is
-encoding-independent by design, and the soundness theorems are
-already stated against data, not files.
+Second, provenance is typed and retained but intentionally descriptive,
+not authenticated.  It can aid reproduction but cannot establish who
+performed a computation or whether the recorded environment is complete.
+The protocol also remains a deliberately narrow, closed vocabulary; new
+coefficient domains, object kinds, and probabilistic propositions require
+versioned extensions rather than ad hoc fields.
 
-The near-term roadmap, in order of leverage: upstream
-\code{buchberger\_criterion} and \code{degRevLex} to \mathlib{};
-formalize the Lex agreement lemmas and the graded semantics; add
-exactness certificates; reinstate the coprime-pair optimization by
-formalizing Buchberger's first criterion; and extend the tactic to
-symbolic goals.  The long-term test of the project is whether
-conjectures, computations, certificates, and theorems can move
-between the two ecosystems while retaining precise meaning and
-explicit trust---so that a computation performed in 2026 can still be
-replayed, and its theorem still trusted, by systems that have long
-since changed.
+Third, the implementation eagerly parses JSON and embeds large
+certificate literals.  A Gr\"obner certificate carries a standard
+representation for every S-pair, so certificate growth can dominate
+the computed answer.  The current examples do not determine where
+memory or elaboration becomes prohibitive.  Compact encodings,
+streaming runtime checks, and reflective kernel checkers require a
+separate evaluation before research-scale claims are warranted.
+
+Fourth, theorem production is only partially automated.  The
+\code{by macaulay2} prototype accepts ground membership goals already
+expressed in the sparse model, and the checked-in example theorems use
+an unverified JSON-to-Lean generator.  The release pipeline now
+regenerates those literals and checks them against a committed hash ledger
+before building the theorem files, which controls artifact drift but does
+not verify the semantic correctness of the transformation or reflect
+arbitrary user goals.
+
+Immediate work is therefore to formalize the Lex and graded tiers,
+broaden the tactic's reflection layer, and extend protocol conformance
+and mutation testing.  Exactness and
+minimality require new certificate families rather than stronger prose
+about the existing complex check.  A subsequent benchmark suite should
+vary variables, generators, basis size, coefficient domain, and
+certificate density independently and report failures as well as
+successful runs.
+
+\section{Conclusion}\label{sec:conclusion}
+
+M2Lean demonstrates a concrete certificate boundary between \M{} and
+\lean{}~4.  The principal result is not that every accepted document
+is already a Lean theorem: the runtime verifier and the kernel theorem
+path deliberately provide different assurance.  Rather, the same
+explicit evidence can support a convenient standalone check and, when
+embedded and connected to a soundness theorem, a kernel-checked
+mathematical statement.  The GRevLex development, trust analysis, and
+case studies show that this pattern extends beyond elementary
+polynomial normalization while also making the present limits visible.
+The next measure of success is a public, archived artifact whose
+generated examples replay from \M{} source through final Lean theorem.
 
 \section*{Acknowledgements}
-This project's design and implementation were carried out with the
-assistance of Claude (Anthropic).  We thank the Macaulay2 and
-\lean{}/\mathlib{} communities, whose public interfaces and libraries
-made a two-system bridge feasible as a vertical slice.
-
-\bibliographystyle{alpha}
-\bibliography{references}
+AI-assisted tools were used during implementation review and editorial
+revision.  The author
+reviewed the generated code and prose and remains responsible for the
+mathematical statements, experiments, and conclusions.  The author
+thanks the Macaulay2 and \lean{}/\mathlib{} communities, whose public interfaces
+and libraries made this interoperability experiment possible.
 
 \appendix
 
-\section{A complete protocol document}\label{app:doc}
+\section{Complete protocol document}\label{app:doc}
 
 The valid fixture \code{membership.json}, abridged only in
 whitespace: the claim certifies $2x \in (x+y,\, x-y)$ in
 $\QQ[x,y]$ with cofactors $(1,1)$.
 
 \begin{lstlisting}[style=jsonstyle]
-{ "m2leanVersion": "0.1.0",
+{ "m2leanVersion": "0.2.0",
   "documentId": "fixture-membership",
   "objects": [
     { "id": "QQ", "kind": "RationalField" },
@@ -1346,43 +1294,49 @@ $\QQ[x,y]$ with cofactors $(1,1)$.
         { "terms": [ { "coefficient": {"num":"1","den":"1"},
                        "exponents": [0,0] } ] } ] } } ],
   "provenance": { "producer": "handwritten", "producerVersion": "n/a",
-                  "packageVersion": "0.1.0", "deterministic": true } }
+                  "packageVersion": "0.2.0", "deterministic": true } }
 \end{lstlisting}
 
 The corresponding verification report:
 
+\noindent\begin{minipage}{\linewidth}
 \begin{lstlisting}[style=jsonstyle]
-{ "m2leanVersion": "0.1.0",
+{ "m2leanVersion": "0.2.0",
+  "documentId": "fixture-membership-report",
   "reportFor": "fixture-membership",
   "results": [
     { "claim": "c1", "status": "accepted", "assurance": "proved",
       "message": "element lies in the ideal" } ],
+  "inputProvenance": { "producer": "handwritten",
+                       "producerVersion": "n/a",
+                       "packageVersion": "0.2.0",
+                       "deterministic": true },
   "provenance": { "producer": "m2lean-check (Lean 4)",
-                  "packageVersion": "0.1.0" } }
+                  "packageVersion": "0.2.0" } }
 \end{lstlisting}
+\end{minipage}
 
-\section{Five more crossings}\label{app:more}
+\section{Additional examples}\label{app:more}
 
-Each example below (six, spanning six areas) is one complete trip across the bridge, condensed
-to its core: the \M{} discovery
-(\textcolor{m2col}{red}), the certificate that crosses the protocol
-boundary, and what \lean{} verifies
-(\textcolor{leancol}{blue}).  All five documents are generated by
+Each of the six examples below is condensed to the \M{} computation
+(\textcolor{m2col}{red}), the certificate crossing the protocol
+boundary, and what \lean{} verifies (\textcolor{leancol}{blue}).  All six
+documents are generated by
 \code{examples/appendix/appendix.m2} and verified by
-\code{m2lean-check} in the test suite; the certificate identities
-displayed are quoted from the actual documents.  Each \proved{}-level
-claim could be embedded and kernel-checked as a \lean{} theorem
-exactly as in \S\ref{sec:flagship}; we keep these five at the CLI
-level for brevity.
+\code{m2lean-check} in the test suite; the displayed identities are
+drawn from those documents.  A \proved{} runtime label means the claim
+family has a soundness theorem, as in \S\ref{sec:trust}; only the
+Galois example in this appendix is instantiated as a kernel theorem in
+the current repository.
 
-\newcommand{\verdictline}[2]{\noindent\textbf{\lean{}:}
+\newcommand{\verdictline}[2]{\noindent\textbf{Runtime verifier:}
 \textcolor{okgreen}{$\checkmark$ accepted} [#1] --- #2\par}
 
 \subsection*{B.1\quad Invariant theory: Newton's identity}
 
 Power sums are polynomials in elementary symmetric functions; the
-degree-3 instance is a \code{PolynomialIdentity} claim, the base case
-of the certificate family.
+degree-3 instance is a small example handled as a
+\code{PolynomialIdentity} claim.
 
 \begin{lstlisting}[style=m2style]
 R = QQ[x,y,z];
@@ -1395,9 +1349,10 @@ p_3 \;=\; e_1^3 - 3\,e_1 e_2 + 3\,e_3 .
 \]
 
 \verdictline{\proved}{both raw sides normalize to the same canonical
-form, so their interpretations in
-\code{MvPolynomial (Fin 3) $\QQ$} are equal
-(\code{checkIdentity\_sound}).}
+form.  The general theorem \code{checkIdentity\_sound} is available to
+promote an embedded check to equality in
+\code{MvPolynomial (Fin 3) $\QQ$}; this document remains at runtime
+level.}
 
 \subsection*{B.2\quad Toric ideals and algebraic statistics: Markov moves}
 
@@ -1405,8 +1360,10 @@ For $2\times 3$ contingency tables, the toric ideal of the
 independence model contains three $2\times 2$ minors, but Markov
 chains often use only the \emph{adjacent} moves
 $m_1 = p_{11}p_{22}-p_{12}p_{21}$ and
-$m_2 = p_{12}p_{23}-p_{13}p_{22}$~\cite{diaconis-sturmfels}.  The long
-move becomes reachable whenever the middle entry is positive:
+$m_2 = p_{12}p_{23}-p_{13}p_{22}$~\cite{diaconis-sturmfels}.  The
+following certificate records one saturation relation: after
+multiplication by the middle coordinate $p_{22}$, the long minor lies
+in the ideal of the adjacent moves.
 
 \begin{lstlisting}[style=m2style]
 S = QQ[p11,p12,p13,p21,p22,p23];
@@ -1419,10 +1376,10 @@ p_{22}\,(p_{11}p_{23}-p_{13}p_{21})
  \;=\; p_{23}\,m_1 \;+\; p_{21}\,m_2 .
 \]
 
-\verdictline{\proved}{the element lies in
-$\operatorname{span}(m_1,m_2)$
-(\code{checkMembership\_sound}); the displayed cofactors
-$(p_{23},\,p_{21})$ are \M{}'s.}
+\verdictline{\proved}{the cofactor identity is accepted.  The general
+theorem \code{checkMembership\_sound} can promote an embedded check to
+membership in $\operatorname{span}(m_1,m_2)$; the displayed cofactors
+are $(p_{23},p_{21})$.}
 
 \subsection*{B.3\quad Galois theory: separability of $\Phi_8$}
 
@@ -1438,18 +1395,17 @@ unitIdealClaim(D, "separable", ideal(f, diff(t, f)));
 1 \;=\; 1\cdot(t^4+1) \;+\; \Bigl(-\tfrac{t}{4}\Bigr)\cdot 4t^3 .
 \]
 
-\verdictline{\proved}{this crossing is fully promoted: the
+\verdictline{\proved}{this crossing is kernel-instantiated: the
 certificate is embedded and kernel-checked
 (\code{Examples/Galois.lean}), the B\'ezout identity is transferred
 to univariate polynomials, and the result is \mathlib{}'s own
 separability notion,
-\code{phi8\_separable} : the polynomial $X^4+1$ is separable in $\QQ[X]$, in \mathlib{}'s own sense ---
-$\Phi_8$ has no repeated root in any extension of $\QQ$, i.e.\
-$\QQ(\zeta_8)/\QQ$ is \'etale.}
+\code{phi8\_separable}: the polynomial $X^4+1$ is separable in
+$\QQ[X]$.}
 
-\subsection*{B.4\quad Combinatorics: $K_4$ is not 3-colorable}
+\subsection*{B.4\quad Combinatorics: $K_4$ is not 3-colourable}
 
-Encoding colors as cube roots of unity, a graph $G$ is 3-colorable
+Encoding colours as cube roots of unity, a graph $G$ is 3-colourable
 iff the system $\{x_i^3 - 1\} \cup \{x_i^2 + x_i x_j + x_j^2 : ij \in
 E(G)\}$ has a solution; infeasibility is certified by a
 Nullstellensatz witness~\cite{nulla}.
@@ -1457,28 +1413,29 @@ Nullstellensatz witness~\cite{nulla}.
 \begin{lstlisting}[style=m2style]
 G = QQ[x1,x2,x3,x4];
 U = ideal(vertexPolys | edgePolys);   -- 4 + 6 generators
-assert(U == 1);                        -- discovery
+assert(U == 1);                        -- computation
 unitIdealClaim(D, "k4not3col", U);
 \end{lstlisting}
 
-The ten cofactors are genuinely computed objects---the one attached
-to $x_1^2+x_1x_2+x_2^2$ is
+For example, the cofactor attached to
+$x_1^2+x_1x_2+x_2^2$ is
 \[
 \tfrac{2}{9}x_3^2x_4^2 + \tfrac{2}{9}x_3x_4^3 - \tfrac{4}{9}x_4^4
- - \tfrac{1}{3}x_3 + \tfrac{1}{3}x_4 ,
+ - \tfrac{1}{3}x_3 + \tfrac{1}{3}x_4 .
 \]
-not something one guesses by hand.
 
-\verdictline{\proved}{$1 \in U$, hence the system has no solution in
-any nontrivial commutative $\QQ$-algebra; by the classical encoding
-argument, $K_4$ admits no proper 3-coloring.}
+\verdictline{\proved}{the runtime checker accepts the identity
+$1 \in U$.  The soundness theorem rules out a common zero when
+instantiated; together with the classical encoding, this implies that
+$K_4$ admits no proper 3-colouring.  This document is not instantiated
+as a kernel theorem in the repository.}
 
-\subsection*{B.5\quad Combinatorial algebraic geometry: a
-Stanley--Reisner resolution}
+\subsection*{B.5\quad A graded complex for a Stanley--Reisner ideal}
 
-The Stanley--Reisner ideal of the 4-cycle is the complete
-intersection $I = (ac,\, bd)$; its Koszul resolution has Betti
-numbers $1,2,1$.
+The Stanley--Reisner ideal of the 4-cycle is the complete intersection
+$I=(ac,bd)$.  \M{} returns the matrices and twists of its standard
+Koszul resolution, whose Betti numbers are $1,2,1$; the bridge checks
+only the properties stated below.
 
 \begin{lstlisting}[style=m2style]
 Q = QQ[a,b,c,d];  Isr = ideal(a*c, b*d);
@@ -1492,11 +1449,13 @@ chainComplexClaim(D, "koszulcx", {C.dd_1, C.dd_2});
   \xrightarrow{\;(ac\;\; bd)\;} R \to R/I \to 0 .
 \]
 
-{\sloppy
-\verdictline{\proved{} / \checked}{$d_1 d_2 = 0$ as a \mathlib{}
-\code{Matrix} identity (\code{checkComplexPair\_sound}, \proved);
-homogeneity of every entry for the displayed twists---hence the Betti
-table $1,2,1$---is verified at level \checked.}\par}
+\noindent\textbf{Runtime verifier:} the report accepts
+\code{koszulcx} [\proved] and \code{koszul} [\checked].  The first is
+backed by \code{checkComplexPair\_sound}, which gives $d_1d_2=0$ as a
+\mathlib{} \code{Matrix} identity.  The executable graded checker also
+accepts the matrix dimensions, declared twists, and homogeneity of
+every entry.  Neither result certifies exactness, minimality, the
+cokernel, or the displayed Betti numbers.
 
 \subsection*{B.6\quad Finite fields: the same machinery over $\mathbb{F}_{101}$}
 
@@ -1507,13 +1466,21 @@ soundness theorems run over \code{ZMod p}.
 F = ZZ/101[x,y];  Ip = ideal(x^2 + y^2, x*y - 1);
 gbClaim(D, "gbp", Ip);
 membershipClaim(D, "memp", x^3 + x*y^2, Ip);
-nonMembershipClaim(D, "nmp", x, Ip);   -- x is NOT in Ip
+nonMembershipClaim(D, "nmp", x, Ip,
+    "groebnerClaim" => "gbp");          -- x is NOT in Ip
 \end{lstlisting}
 
 \verdictline{\proved}{all three claims --- the Gr\"obner basis, the
 membership, and the negative certificate --- verify over
 \code{ZMod 101} at the \proved{} level; the Buchberger soundness
 theorem is field-generic, so finite-field certificates inherit it
-for free.}
+without a rational-coefficient specialization.  These claims remain
+runtime results in this appendix.}
+
+{\footnotesize
+\raggedright
+\bibliographystyle{alpha}
+\bibliography{references}
+}
 
 \end{document}

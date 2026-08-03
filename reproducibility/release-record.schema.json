@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/andrew-tawfeek/M2Lean/raw/v0.2.0/reproducibility/release-record.schema.json",
+  "title": "M2Lean external post-tag release record",
+  "type": "object",
+  "required": [
+    "recordVersion",
+    "recordType",
+    "generatedAt",
+    "repository",
+    "release",
+    "staticManifest",
+    "benchmark",
+    "archive",
+    "releaseAssets"
+  ],
+  "properties": {
+    "recordVersion": { "const": "1.0.0" },
+    "recordType": { "const": "m2lean-post-tag-release" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "repository": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "release": {
+      "type": "object",
+      "required": ["tag", "tagObject", "commit", "tree", "commitDate"],
+      "properties": {
+        "tag": { "type": "string", "pattern": "^v[0-9]" },
+        "tagObject": { "$ref": "#/$defs/gitObject" },
+        "commit": { "$ref": "#/$defs/gitObject" },
+        "tree": { "$ref": "#/$defs/gitObject" },
+        "commitDate": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "staticManifest": {
+      "allOf": [
+        { "$ref": "#/$defs/hashedFile" },
+        {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": { "const": "reproducibility/manifest.json" }
+          }
+        }
+      ]
+    },
+    "benchmark": {
+      "allOf": [
+        { "$ref": "#/$defs/namedFile" },
+        {
+          "type": "object",
+          "required": ["recordedCommit", "createdAt", "phases"],
+          "properties": {
+            "recordedCommit": { "$ref": "#/$defs/gitObject" },
+            "createdAt": { "type": "string", "format": "date-time" },
+            "phases": {
+              "type": "array",
+              "prefixItems": [
+                { "const": "checker" },
+                { "const": "generation" },
+                { "const": "lean_elaboration" }
+              ],
+              "items": false,
+              "minItems": 3,
+              "maxItems": 3
+            }
+          }
+        }
+      ]
+    },
+    "archive": {
+      "type": "object",
+      "required": ["permalink", "doi"],
+      "properties": {
+        "permalink": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "doi": {
+          "type": ["string", "null"],
+          "pattern": "^10\\.[0-9]{4,9}/\\S+$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "releaseAssets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/namedFile" }
+    }
+  },
+  "$defs": {
+    "gitObject": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "hashedFile": {
+      "type": "object",
+      "required": ["bytes", "sha256"],
+      "properties": {
+        "bytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "namedFile": {
+      "allOf": [
+        { "$ref": "#/$defs/hashedFile" },
+        {
+          "type": "object",
+          "required": ["name", "mediaType"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "mediaType": { "type": ["string", "null"] }
+          }
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

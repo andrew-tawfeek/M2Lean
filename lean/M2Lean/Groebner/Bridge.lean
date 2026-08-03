@@ -29,7 +29,7 @@ theorem sum_getD_eq_sum : ∀ (e : List ℕ) (n : ℕ), e.length ≤ n →
   | a :: as, 0, h => by simp at h
   | a :: as, n + 1, h => by
     rw [Fin.sum_univ_succ]
-    simp only [List.getD_cons_zero, Fin.val_succ, List.getD_cons_succ,
+    simp only [Fin.val_succ, List.getD_cons_succ,
       List.sum_cons]
     congr 1
     exact sum_getD_eq_sum as n (by simpa using h)
@@ -268,7 +268,7 @@ theorem cmpGRevLex_lt_iff (n : ℕ) {e₁ e₂ : List ℕ}
         obtain ⟨i, hafter, hilt⟩ := hcolex
         have him : (i : ℕ) < m := by
           by_contra hge
-          push_neg at hge
+          push Not at hge
           rw [hz₁ i hge, hz₂ i hge] at hilt
           exact lt_irrefl _ hilt
         refine ⟨m - 1 - (i : ℕ), ?_, ?_, ?_⟩
@@ -348,14 +348,14 @@ theorem insertMerged_coeff_ne_zero {t : STerm α} {l : SPoly α}
     intro s hs
     by_cases he : t.exps = u.exps
     · by_cases hc : t.coeff + u.coeff = 0
-      · simp only [insertMerged, he, if_pos, hc, if_true] at hs
+      · simp only [insertMerged, he, if_pos, hc] at hs
         exact hl s (List.mem_cons_of_mem u hs)
       · simp only [insertMerged, he, if_pos, hc, if_false] at hs
         rcases List.mem_cons.mp hs with rfl | hs
         · simpa using hc
         · exact hl s (List.mem_cons_of_mem u hs)
     · by_cases h0 : t.coeff = 0
-      · simp only [insertMerged, he, if_neg, h0, if_true, ite_false] at hs
+      · simp only [insertMerged, he, h0, if_true, ite_false] at hs
         exact hl s hs
       · simp only [insertMerged, he, h0, ite_false] at hs
         rcases List.mem_cons.mp hs with rfl | hs
@@ -385,14 +385,14 @@ theorem insertMerged_exps_mem {t : STerm α} {l : SPoly α} :
     intro s hs
     by_cases he : t.exps = u.exps
     · by_cases hc : t.coeff + u.coeff = 0
-      · simp only [insertMerged, he, if_pos, hc, if_true] at hs
+      · simp only [insertMerged, he, if_pos, hc] at hs
         exact Or.inr ⟨s, List.mem_cons_of_mem u hs, rfl⟩
       · simp only [insertMerged, he, if_pos, hc, if_false] at hs
         rcases List.mem_cons.mp hs with rfl | hs
         · exact Or.inl (by simpa using he.symm)
         · exact Or.inr ⟨s, List.mem_cons_of_mem u hs, rfl⟩
     · by_cases h0 : t.coeff = 0
-      · simp only [insertMerged, he, if_neg, h0, if_true, ite_false] at hs
+      · simp only [insertMerged, he, h0, if_true, ite_false] at hs
         exact Or.inr ⟨s, hs, rfl⟩
       · simp only [insertMerged, he, h0, ite_false] at hs
         rcases List.mem_cons.mp hs with rfl | hs

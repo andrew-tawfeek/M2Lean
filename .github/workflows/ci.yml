@@ -2,51 +2,107 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: [master]
+    tags: ["v*"]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  bridge:
-    name: build, verify, audit
+  reservoir-eligibility:
+    name: Reservoir eligibility
+    if: ${{ github.event.repository.visibility == 'public' && github.event.repository.stargazers_count >= 2 }}
     runs-on: ubuntu-latest
-    container: debian:trixie
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check Reservoir eligibility
+        uses: leanprover/lean-action@38fbc41a8c28c4cbaec22d7f7de508ec2e7c0dd9 # v1.5.0
+        with:
+          auto-config: false
+          build: false
+          test: false
+          lint: false
+          use-mathlib-cache: false
+          use-github-cache: false
+          check-reservoir-eligibility: true
+
+  bridge:
+    name: regenerate, verify, build, audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container: debian:trixie@sha256:d63a99144861e4e460196ed93d07777490cbeab53ca660c434f2a589a6c50ea3
     steps:
       - name: Install system packages
         run: |
           apt-get update -qq
           DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-            macaulay2 curl git rsync python3 ca-certificates
+            macaulay2 elan curl git rsync python3 python3-jsonschema ca-certificates
           M2 --version
+          elan --version
 
-      - uses: actions/checkout@v4
+      # The minimal container does not contain git.  Install it before
+      # checkout so actions/checkout retains repository metadata instead of
+      # falling back to a metadata-free source archive.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Install elan
-        run: |
-          curl -sSf https://elan.lean-lang.org/elan-init.sh | \
-            sh -s -- -y --default-toolchain none
-          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-
-      - name: Cache Lean toolchain and build
-        uses: actions/cache@v4
+      - name: Cache exact Lean toolchain and build state
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.elan/toolchains
             ~/m2lean-lean/.lake
-          key: lean-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}
-          restore-keys: lean-
+          key: lean-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}
 
-      - name: Build Lean library (with mathlib cache)
-        run: bash scripts/lean-build.sh
+      - name: Full reproducibility check
+        run: bash scripts/test-all.sh
         env:
           CI: "true"
 
-      - name: Build m2lean-check
-        run: bash scripts/lean-build.sh m2lean-check
+  clean-release-evidence:
+    name: clean checkout and raw benchmarks
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container: debian:trixie@sha256:d63a99144861e4e460196ed93d07777490cbeab53ca660c434f2a589a6c50ea3
+    steps:
+      - name: Install system packages
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            macaulay2 elan curl git rsync python3 python3-jsonschema ca-certificates
+          M2 --version
+          elan --version
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Deliberately no actions/cache step: this is the release clean-room gate.
+      - name: Test from empty build caches
+        run: bash scripts/test-all.sh
         env:
           CI: "true"
 
-      - name: End-to-end checks (M2 regeneration + verification + adversarial fixtures)
-        run: bash scripts/run-checks.sh
+      - name: Capture raw generation, checker, memory, and Lean timings
+        run: >-
+          bash scripts/bench.sh
+          --output reproducibility/benchmarks/benchmark-${{ github.sha }}.json
 
-      - name: Axiom audit
-        run: bash scripts/audit.sh
+      - name: Validate raw benchmark evidence
+        run: >-
+          python3 scripts/benchmark-check.py
+          reproducibility/benchmarks/benchmark-${{ github.sha }}.json
+
+      - name: Upload raw benchmark evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmark-${{ github.sha }}
+          path: reproducibility/benchmarks/benchmark-${{ github.sha }}.json
+          if-no-files-found: error
+          retention-days: 90

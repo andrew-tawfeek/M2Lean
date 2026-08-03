@@ -31,8 +31,10 @@ object with fields:
 A consumer MUST reject a document whose `m2leanVersion` it does not
 support. Objects MUST be listed in dependency order: an object may only
 reference identifiers introduced earlier in the `objects` array.
-Identifiers are strings, MUST be unique within a document, and have no
-mathematical meaning.
+Identifiers are strings, MUST be unique across both the `objects` and
+`claims` arrays of a document, and have no mathematical meaning.  Thus two
+claims may not share an identifier, and a claim identifier may not collide
+with an object identifier.
 
 Rejection is always a *protocol-level* outcome, never a mathematical
 one: a rejected document says nothing about the truth of its claims.
@@ -351,12 +353,15 @@ The verifier (Lean) answers with a report document:
       "assurance": "none",
       "message": "sPair (0,2): quotient 1 violates lm bound at term 3" }
   ],
+  "inputProvenance": { ... },
   "provenance": { ... }
 }
 ```
 
 `status` is `accepted` or `rejected`. Failure messages MUST
 distinguish parsing, structural (semantic), and verification failures.
+`inputProvenance` is the unchanged provenance object from the input;
+`provenance` describes the verifier that produced the report.
 
 ## 6. Assurance levels
 
@@ -384,7 +389,7 @@ coefficient field: `ℚ` or, for `PrimeField p` rings, `ZMod p`.
 {
   "producer": "Macaulay2",
   "producerVersion": "1.24.11",
-  "packageVersion": "0.1.0",
+  "packageVersion": "0.2.0",
   "algorithm": "gb (engine default)",
   "options": {},
   "coefficientNotes": "QQ exact",
@@ -392,12 +397,20 @@ coefficient field: `ℚ` or, for `PrimeField p` rings, `ZMod p`.
 }
 ```
 
-All fields are informative, not trusted; provenance never influences
-acceptance. Producers SHOULD record enough context to re-run the
-computation (README §2.4). Probabilistic or heuristic steps MUST set
-`deterministic: false`, and consumers MUST NOT report `proved` or
-`checked` assurance for claims whose evidence depends on them (v0
-defines no such claim kinds).
+`producer` and `producerVersion` are required strings.  If present,
+`packageVersion`, `algorithm`, and `coefficientNotes` MUST be strings,
+`options` MUST be an object, and `deterministic` MUST be a Boolean.  Producers
+using probabilistic or heuristic steps MUST set `deterministic: false`.
+Consumers MUST retain the input provenance in verification reports.
+
+All provenance fields are informative and untrusted; provenance never
+influences certificate acceptance or its assurance level.  In particular,
+`deterministic: false` records how evidence was *found*, while `checked` and
+`proved` describe how the supplied evidence was independently verified.
+Producers SHOULD record enough context to re-run the computation (README
+§2.4).  Future claim kinds whose propositions themselves have probabilistic
+semantics will require an explicit protocol extension rather than overloading
+this metadata flag.
 
 ## 8. Versioning
 

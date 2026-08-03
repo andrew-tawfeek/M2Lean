@@ -37,7 +37,7 @@ theorem gens_interp :
   simp only [separable_gens, List.map_cons, List.map_nil, toMv_cons, toMv_nil,
     toTerm_eq_prod, Fin.prod_univ_one, List.getD]
   norm_num
-  constructor <;> ring
+  constructor
 
 theorem bezout :
     c₁ * (X 0 ^ 4 + 1) + c₂ * (4 * X 0 ^ 3) = (1 : MvPolynomial (Fin 1) ℚ) := by
@@ -49,7 +49,7 @@ theorem bezout :
     List.zipWith_nil_right, List.sum_cons, List.sum_nil, add_zero] at h
   have hg1 : toMv 1 ([⟨(1 : Rat), [4]⟩, ⟨(1 : Rat), [0]⟩] : SPoly Rat) =
       X 0 ^ 4 + 1 := by
-    simp [toMv, toTerm_eq_prod, Fin.prod_univ_one]
+    simp [toMv, toTerm_eq_prod]
   have hg2 : toMv 1 ([⟨(4 : Rat), [3]⟩] : SPoly Rat) = 4 * X 0 ^ 3 := by
     have hC : (C (4 : ℚ) : MvPolynomial (Fin 1) ℚ) = 4 := map_ofNat C 4
     simp [toMv, toTerm_eq_prod, hC]

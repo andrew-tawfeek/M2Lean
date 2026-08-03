@@ -1,0 +1,13 @@
+{
+  "m2leanVersion": "0.2.0",
+  "documentId": "fixture-composite-prime-field",
+  "_expectRejection": "structural: PrimeField characteristic must be prime",
+  "objects": [
+    { "id": "F4", "kind": "PrimeField", "characteristic": "4" }
+  ],
+  "claims": [],
+  "provenance": {
+    "producer": "handwritten", "producerVersion": "n/a",
+    "packageVersion": "0.2.0", "deterministic": true
+  }
+}
