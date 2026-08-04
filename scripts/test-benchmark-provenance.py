@@ -37,6 +37,7 @@ class BenchmarkProvenanceTests(unittest.TestCase):
             cls.schema = json.load(stream)
 
     def test_current_checkout_has_an_exact_commit(self) -> None:
+        self.require_git_checkout()
         source = self.benchmark.source_state()
         self.assertRegex(source["git_commit"], r"^[0-9a-f]{40}$")
         self.assertIsInstance(source["git_dirty"], bool)
@@ -156,12 +157,20 @@ class BenchmarkProvenanceTests(unittest.TestCase):
             with self.assertRaisesRegex(self.benchmark.BenchmarkError, "HEAD changed"):
                 self.benchmark.source_state()
 
-    def benchmark_document(self) -> dict:
+    def require_git_checkout(self) -> None:
+        if not (ROOT / ".git").exists():
+            self.skipTest("requires Git metadata; source archives intentionally omit .git")
+
+    def checkout_commit(self) -> str:
+        self.require_git_checkout()
+        return self.benchmark.git_text("rev-parse", "--verify", "HEAD^{commit}")
+
+    def benchmark_document(self, commit: str = "1" * 40) -> dict:
         return {
             "schema_version": "1.0.0",
             "created_utc": "2026-08-04T00:00:00Z",
             "source": {
-                "git_commit": self.benchmark.git_text("rev-parse", "--verify", "HEAD^{commit}"),
+                "git_commit": commit,
                 "git_dirty": False,
                 "git_status_porcelain": "",
                 "tracked_diff_sha256": hashlib.sha256(b"").hexdigest(),
@@ -194,18 +203,18 @@ class BenchmarkProvenanceTests(unittest.TestCase):
                 )
 
     def test_checker_accepts_consistent_clean_provenance(self) -> None:
-        result = self.run_checker(self.benchmark_document())
+        result = self.run_checker(self.benchmark_document(self.checkout_commit()))
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_checker_rejects_dirty_flag_status_disagreement(self) -> None:
-        document = self.benchmark_document()
+        document = self.benchmark_document(self.checkout_commit())
         document["source"]["git_status_porcelain"] = "?? untracked"
         result = self.run_checker(document)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("dirty flag disagrees", result.stderr)
 
     def test_checker_rejects_nonempty_diff_for_a_clean_record(self) -> None:
-        document = self.benchmark_document()
+        document = self.benchmark_document(self.checkout_commit())
         document["source"]["tracked_diff_sha256"] = "1" * 64
         result = self.run_checker(document)
         self.assertNotEqual(result.returncode, 0)

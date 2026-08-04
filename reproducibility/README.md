@@ -83,4 +83,7 @@ manifest and provides a standard-tool check. The release gate uses
 case-conflicting, symlinked, missing, or unlisted paths; it also computes raw
 digests without Git or external Python packages. `scripts/test-all.sh` runs
 that check before and after regeneration, so it verifies both the shipped
-files and producer determinism even in an unpacked source archive.
+files and producer determinism even in an unpacked source archive. The
+benchmark-provenance unit tests that inspect the live checkout skip only their
+Git-linked integration cases in such an archive; failure-mode and schema tests
+still run, while benchmark production itself continues to require Git metadata.
