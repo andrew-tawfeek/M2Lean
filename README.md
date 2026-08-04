@@ -9,9 +9,27 @@ Macaulay2 discovers algebraic data and emits explicit evidence; a Lean
 executable validates that evidence, and selected checker results can be
 instantiated as theorems checked by Lean's kernel.
 
-This repository is the release candidate for M2Lean 0.2.0 and protocol
-0.2.0. The public interface is still experimental: pin a tag or commit
-instead of following the default branch.
+This repository contains M2Lean 0.2.0 and protocol 0.2.0. The public
+interface is still experimental: pin the annotated tag `v0.2.0` or the exact
+evaluated commit `49f18427957e3a7960971d43c14ea4ce6991e472` instead of following
+the default branch.
+
+## Release and archival evidence
+
+The [v0.2.0 release](https://github.com/andrew-tawfeek/M2Lean/releases/tag/v0.2.0)
+contains the [raw paper benchmark](https://github.com/andrew-tawfeek/M2Lean/releases/download/v0.2.0/paper-v0.2.0.json),
+the [post-tag identity record](https://github.com/andrew-tawfeek/M2Lean/releases/download/v0.2.0/m2lean-v0.2.0-release-record.json),
+and the deterministic [source archive](https://github.com/andrew-tawfeek/M2Lean/releases/download/v0.2.0/M2Lean-v0.2.0.tar.gz)
+with its [checksum](https://github.com/andrew-tawfeek/M2Lean/releases/download/v0.2.0/M2Lean-v0.2.0.tar.gz.sha256).
+The [tag CI run](https://github.com/andrew-tawfeek/M2Lean/actions/runs/30874626074)
+completed both the normal release gate and a no-cache clean-room build.
+
+[Software Heritage preserves the tagged Git source](https://archive.softwareheritage.org/swh:1:dir:8354556bb3be6e767b97774ca17f501efd6fbefd;origin=https://github.com/andrew-tawfeek/M2Lean;visit=swh:1:snp:3287142ae38071a07632f96b5887f3284112e764;anchor=swh:1:rel:b14fe2261b9eca1a816b9590ee6edda3d091feb2),
+including annotated release SWHID
+`swh:1:rel:b14fe2261b9eca1a816b9590ee6edda3d091feb2`. Ordinary Software
+Heritage Git ingestion does not preserve separately attached GitHub release
+assets; the benchmark, source archive, and checksum file are instead bound to
+the tagged commit by the post-tag identity record.
 
 ## What is certified
 
@@ -19,7 +37,7 @@ The interchange format covers rational and prime fields, multivariate
 polynomial rings with Lex or GRevLex order, ideals, matrices, graded free
 modules, and seven claim kinds.
 
-| Claim | Runtime check | Kernel-checked soundness |
+| Claim | Runtime check | Checker soundness theorem in Lean |
 |---|---|---|
 | Polynomial identity | yes | yes |
 | Ideal membership | yes | yes |

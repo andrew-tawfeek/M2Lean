@@ -116,10 +116,12 @@ We distinguish two outcomes that are often conflated.  The
 \code{m2lean-check} executable produces a runtime verification report;
 its \code{proved} label means that the relevant checker has a formal
 soundness theorem, not that the particular report is a proof object.
-For selected examples and for a prototype \code{by macaulay2} tactic,
-certificate data are instead embedded in a theorem file, re-evaluated
-by \lean{}'s kernel, and passed to the soundness theorem.  This second
-path yields a kernel-checked theorem.
+For the checked-in theorem examples, generated certificate literals are
+embedded in a theorem file, re-evaluated by \lean{}'s kernel, and passed
+to the soundness theorem.  The prototype \code{by macaulay2} tactic
+instead obtains a live certificate during elaboration and constructs the
+corresponding soundness-theorem application.  Both theorem paths yield a
+kernel-checked theorem.
 
 The development includes a bridge-specific formalization of
 Buchberger's standard-representation criterion, a
@@ -207,11 +209,22 @@ This paper describes a prototype with the following components.
   (\S\ref{sec:flagship}--\S\ref{sec:experiments}).
 \end{enumerate}
 
-The implementation and reproducibility bundle are prepared for public
-release at \url{https://github.com/andrew-tawfeek/M2Lean} concurrently
-with this preprint~\cite{m2lean-repo}.  Until that release is public and
-archived, claims about artifact availability should be read as a
-release plan rather than as an existing archival deposit.
+\begin{samepage}
+The evaluated artifact has the following immutable identity:
+\begin{center}
+\small
+\begin{tabular}{@{}ll@{}}
+release & M2Lean~0.2.0, annotated tag \code{v0.2.0} \\
+source commit & \code{49f18427957e3a7960971d43c14ea4ce6991e472} \\
+Software Heritage release & \code{swh:1:rel:b14fe2261b9eca1a816b9590ee6edda3d091feb2} \\
+\end{tabular}
+\end{center}
+The GitHub release supplies the raw benchmark record, deterministic
+source archive, checksum file, and a post-tag identity record that binds
+the first three to the evaluated commit~\cite{m2lean-benchmark,m2lean-repo}.
+Ordinary Software Heritage Git ingestion preserves the source and tag,
+not those separately attached release assets.
+\end{samepage}
 
 \section{Related work}\label{sec:related}
 
@@ -1072,18 +1085,20 @@ checking, and report construction.
 \toprule
 graph & vertices & edges & document (kB) & runtime (ms) \\
 \midrule
-$K_4$                       & 4  & 6  & 4.5 & 32 \\
-$W_5$                       & 6  & 10 & 8.0 & 34 \\
-Gr\"otzsch                  & 11 & 20 & 114.5 & 799 \\
+$K_4$                       & 4  & 6  & 4.5 & 31.0 \\
+$W_5$                       & 6  & 10 & 8.0 & 35.9 \\
+Gr\"otzsch                  & 11 & 20 & 114.5 & 774.7 \\
 \bottomrule
 \end{tabular}
 \end{center}
 These three observations are a case study, not a scaling law.  All
 three documents are accepted by \code{m2lean-check}; only $W_5$ is
 connected in the repository to a kernel-checked non-colourability
-theorem.  For $K_4$ and the Gr\"otzsch graph, the artifact establishes
-the unit-ideal identities at runtime, while the combinatorial
-conclusion relies on the classical encoding argument above.
+theorem.  For $K_4$ and the Gr\"otzsch graph,
+\code{m2lean-check} accepts the unit-ideal certificates, but this
+release does not instantiate either document as a concrete Lean
+non-colourability theorem.  The corresponding combinatorial implication
+is the classical encoding argument above.
 
 \section{Evaluation}\label{sec:experiments}
 
@@ -1125,8 +1140,14 @@ More systematic property-based mutation remains future evaluation work.
 
 \subsection{Measurement method and results}
 
-Measurements were taken under WSL~2 on Debian~13 with an AMD Ryzen~7
-9800X3D, 31.7\,GB RAM, \M{}~1.24.11, and \lean{}~4.32.0.  The pinned
+Measurements were taken on Debian GNU/Linux~13.5 under WSL~2.  The
+recorded kernel was
+\begin{center}\small
+\code{6.18.33.1-microsoft-standard-WSL2}.
+\end{center}
+The host had an AMD Ryzen~7 9800X3D (16 logical CPUs) and
+31,651,472\,KiB (30.2\,GiB) RAM.  The software
+versions were \M{}~1.24.11, \lean{}~4.32.0, and Lake~5.0.0.  The pinned
 \mathlib{} commit was
 \begin{center}\small
 \code{81a5d257c8e410db227a6665ed08f64fea08e997}.
@@ -1134,58 +1155,78 @@ Measurements were taken under WSL~2 on Debian~13 with an AMD Ryzen~7
 For each runtime-verifier row, the executable was run once to warm
 caches and then timed three times; the table reports the median wall
 time.  The benchmark is sequential but was not CPU-pinned.
-Runtime-verifier measurements include process startup,
-JSON parsing, validation, checking, and report construction.  Sizes
-are total JSON document sizes in decimal kilobytes.  The current
-benchmark driver retains every warm-up and timed sample, command,
-standard output and error, exit status, peak resident memory, environment,
-and source commit in schema-validated JSON.
+Runtime-verifier measurements include process startup, JSON parsing,
+validation, checking, and report construction.  Sizes are total JSON
+document sizes in decimal kilobytes.  Peak RSS is the maximum recorded
+resident-set size.  The benchmark driver retains every warm-up and timed
+sample, command, standard output and error, exit status, peak resident
+memory, environment, and source commit in schema-validated JSON.
 
 \begin{center}
 \small
-\begin{tabular}{lrrr}
+\begin{tabular}{lrrrr}
 \toprule
-document & claims & size (kB) & runtime (ms) \\
+document & claims & size (kB) & runtime (ms) & peak RSS (MiB) \\
 \midrule
-\code{flagship} & 5 & 5.3 & 35 \\
-\code{jacobian} & 10 & 12.7 & 32 \\
-\code{grotzsch} & 1 & 114.5 & 799 \\
-\code{wheel5} & 1 & 8.0 & 34 \\
-\code{primefield} & 3 & 2.3 & 31 \\
-\code{coloring} ($K_4$) & 1 & 4.5 & 32 \\
-\code{polynomial} & 4 & 2.5 & 31 \\
-\code{galois} & 1 & 0.9 & 31 \\
-\code{toric} & 1 & 1.1 & 30 \\
-\code{stanley-reisner} & 2 & 1.2 & 30 \\
-\code{symmetric} & 1 & 0.8 & 31 \\
+\code{flagship} & 5 & 5.3 & 36.1 & 70.5 \\
+\code{jacobian} & 10 & 12.7 & 30.9 & 70.0 \\
+\code{grotzsch} & 1 & 114.5 & 774.7 & 72.6 \\
+\code{wheel5} & 1 & 8.0 & 35.9 & 70.7 \\
+\code{primefield} & 3 & 2.3 & 36.0 & 70.4 \\
+\code{coloring} ($K_4$) & 1 & 4.5 & 31.0 & 70.6 \\
+\code{polynomial} & 4 & 2.5 & 30.8 & 70.8 \\
+\code{galois} & 1 & 0.9 & 36.1 & 70.4 \\
+\code{toric} & 1 & 1.1 & 36.0 & 70.8 \\
+\code{stanley-reisner} & 2 & 1.2 & 30.9 & 70.8 \\
+\code{symmetric} & 1 & 0.8 & 36.0 & 70.8 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-The single-run generation observations from the development host were
-347\,ms for \path{flagship.m2}, 310\,ms
-for \path{jacobian.m2}, 1,250\,ms for \path{coloring.m2} (two
-documents), and 419\,ms for \path{appendix.m2} (six documents).  These
-figures include \M{} startup and file emission and are reported as
-descriptive observations, not summary statistics.  The earlier manual
-snapshot did not include \path{polynomial.m2}; the current
-\path{scripts/bench.sh} covers all five generation cases and retains
-their raw samples.  The data do not isolate polynomial-checker
-cost from process and parser overhead, so no sub-millisecond checker
-claim is made.
+The single-run generation observations were:
+\begin{center}
+\small
+\begin{tabular}{lrlrlr}
+\toprule
+script & ms & script & ms & script & ms \\
+\midrule
+\code{polynomial.m2} & 319 & \code{flagship.m2} & 352 & \code{jacobian.m2} & 328 \\
+\code{coloring.m2} & 1,118 & \code{appendix.m2} & 347 & & \\
+\bottomrule
+\end{tabular}
+\end{center}
+The colouring script emits two documents and the appendix script six.
+These figures include \M{} startup and file emission and are descriptive
+observations, not summary statistics.
 
-Kernel theorem elaboration is a different workload.  In a separate
-manual measurement after a warm build, each of four checked-in theorem
-files was elaborated three times.  The median wall times were
-6.51\,s (twisted cubic), 4.64\,s (Jacobian),
-9.01\,s ($W_5$ colouring), and 3.63\,s (separability).  These timings
-include elaboration of the entire file, not only certificate
-reduction.  The measurements show feasibility for the included
-instances; the eleven documents are too few and too heterogeneous to
-support a general scaling claim.  The checked-in benchmark driver now
-reproduces this four-file experiment with one warm-up and three retained
-samples per file.  A validated record from the final clean release commit
-is still required before these measurements become archival evidence.
+The harness also times a copy of each document with its claims removed,
+as a parse-and-validation baseline.  Subtracting this baseline is only a
+rough estimate: the process monitor polls at 5\,ms intervals.  The
+Gr\"otzsch document's estimated 743.7\,ms checking increment is clearly
+resolved at that granularity; the other estimated differences, from zero
+through 10.2\,ms, are not interpreted quantitatively.  In particular,
+the data do not support sub-millisecond checker-cost claims.
+
+Kernel theorem elaboration is a different workload.  After one warm-up,
+each of four checked-in theorem files was measured three times.  These
+measurements cover whole-file elaboration, certificate reduction, and
+kernel checking, rather than only the certificate check:
+\begin{center}
+\small
+\begin{tabular}{lrr}
+\toprule
+theorem file & median wall time (s) & peak RSS (GiB) \\
+\midrule
+twisted cubic & 5.86 & 6.43 \\
+Jacobian & 4.10 & 6.54 \\
+$W_5$ colouring & 8.12 & 7.34 \\
+separability & 3.24 & 6.38 \\
+\bottomrule
+\end{tabular}
+\end{center}
+The measurements show feasibility for the included instances; the eleven
+documents are too few and too heterogeneous to support a general scaling
+claim.
 
 \subsection{Reproducibility scope}
 
@@ -1196,15 +1237,20 @@ the runtime verifier.  It regenerates eleven JSON examples and four
 ledger, applies the JSON Schema as a prefilter, executes all 35 acceptance and
 rejection expectations, builds the complete \lean{} library, and runs the
 axiom audit.  Thus byte-for-byte regeneration, runtime validation, and
-theorem-module builds in the recorded environment are now a release gate,
-subject to the unverified-generator qualification above.  A separate
-tagged or manually dispatched job omits restoration of project build state
-and records raw generation, verification, memory, and theorem-elaboration
-measurements.  The immutable in-tree manifest intentionally leaves its
-post-tag identity fields null.  At the time of writing, the external post-tag
-record has not yet been generated, so a public release, permanent archive,
-and clean-commit benchmark remain requirements rather than claims satisfied
-by this paper.
+theorem-module builds in the recorded environment are a release gate,
+subject to the unverified-generator qualification above.
+
+The \code{v0.2.0} tag workflow completed both that gate and a no-cache
+clean-room build, then captured and validated the benchmark record.  The
+record names the exact commit above, \code{git\_dirty: false}, an empty
+porcelain status, and the SHA-256 digest of an empty tracked diff.  The
+external post-tag record binds that benchmark, the deterministic source
+archive, and its checksum file to the annotated tag, and both JSON records
+pass their published schemas~\cite{m2lean-benchmark}.  Software Heritage
+independently preserves the Git source and tag~\cite{m2lean-repo}.  The
+immutable in-tree manifest intentionally leaves its post-tag identity fields
+null because inserting a commit's own identity or the checksum of a
+post-tag record would create a self-reference.
 
 \section{Limitations and roadmap}\label{sec:roadmap}
 
@@ -1260,8 +1306,14 @@ embedded and connected to a soundness theorem, a kernel-checked
 mathematical statement.  The GRevLex development, trust analysis, and
 case studies show that this pattern extends beyond elementary
 polynomial normalization while also making the present limits visible.
-The next measure of success is a public, archived artifact whose
-generated examples replay from \M{} source through final Lean theorem.
+The \code{v0.2.0} source and annotated tag are publicly archived in
+Software Heritage.  The associated GitHub release provides the validated
+benchmark, deterministic source archive, and checksum file, together with a
+record binding those three files to the evaluated commit.  The clean release
+gate regenerates all named example documents and validates them at runtime;
+separately, it rebuilds the four checked-in Lean theorem modules and runs the
+axiom audit.  These results concern the stated examples and environment; they
+do not support a general scaling claim.
 
 \section*{Acknowledgements}
 AI-assisted tools were used during implementation review and editorial
