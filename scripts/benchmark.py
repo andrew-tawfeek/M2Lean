@@ -16,6 +16,7 @@ import json
 import os
 import pathlib
 import platform
+import re
 import shlex
 import shutil
 import signal
@@ -243,19 +244,63 @@ def capture(argv: list[str], *, cwd: pathlib.Path) -> str | None:
     return text or None
 
 
+def git_text(*args: str) -> str:
+    """Run Git for release provenance, failing closed on any error."""
+    argv = ["git", "-c", f"safe.directory={ROOT.resolve()}", *args]
+    try:
+        result = subprocess.run(
+            argv,
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError as error:
+        raise BenchmarkError(f"cannot run {command_text(argv)}: {error}") from error
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip() or f"exit {result.returncode}"
+        raise BenchmarkError(f"git {command_text(args)} failed: {detail}")
+    return result.stdout.strip()
+
+
+def git_bytes(*args: str) -> bytes:
+    """Run Git and return raw stdout for byte-exact provenance hashes."""
+    argv = ["git", "-c", f"safe.directory={ROOT.resolve()}", *args]
+    try:
+        result = subprocess.run(
+            argv,
+            cwd=ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+    except OSError as error:
+        raise BenchmarkError(f"cannot run {command_text(argv)}: {error}") from error
+    if result.returncode != 0:
+        detail = result.stderr.decode("utf-8", errors="replace").strip() or f"exit {result.returncode}"
+        raise BenchmarkError(f"git {command_text(args)} failed: {detail}")
+    return result.stdout
+
+
 def source_state() -> dict[str, Any]:
-    status = capture(["git", "status", "--porcelain=v1"], cwd=ROOT)
-    diff = subprocess.run(
-        ["git", "diff", "--binary", "HEAD", "--"],
-        cwd=ROOT,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    ).stdout
+    top_level = pathlib.Path(git_text("rev-parse", "--show-toplevel")).resolve()
+    if top_level != ROOT.resolve():
+        raise BenchmarkError(f"Git top level {top_level} does not match benchmark root {ROOT.resolve()}")
+
+    commit = git_text("rev-parse", "--verify", "HEAD^{commit}")
+    if re.fullmatch(r"[0-9a-f]{40}", commit) is None:
+        raise BenchmarkError(f"git returned an invalid HEAD commit: {commit!r}")
+    status = git_text(
+        "status", "--porcelain=v1", "--untracked-files=all", "--ignore-submodules=none"
+    )
+    diff = git_bytes("diff", "--binary", "--no-ext-diff", "--no-textconv", commit, "--")
+    final_commit = git_text("rev-parse", "--verify", "HEAD^{commit}")
+    if final_commit != commit:
+        raise BenchmarkError(f"HEAD changed while recording provenance: {commit} -> {final_commit}")
     return {
-        "git_commit": capture(["git", "rev-parse", "HEAD"], cwd=ROOT),
+        "git_commit": commit,
         "git_dirty": bool(status),
-        "git_status_porcelain": status or "",
+        "git_status_porcelain": status,
         "tracked_diff_sha256": sha256_bytes(diff),
     }
 
@@ -435,10 +480,16 @@ def main() -> int:
     m2 = shutil.which("M2") or "M2"
     lake = shutil.which("lake") or str(pathlib.Path.home() / ".elan" / "bin" / "lake")
     checker = args.lean_root / ".lake" / "build" / "bin" / "m2lean-check"
+    try:
+        source = source_state()
+    except BenchmarkError as error:
+        print(f"benchmark provenance failed: {error}", file=sys.stderr)
+        return 1
+
     result: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "created_utc": created.isoformat().replace("+00:00", "Z"),
-        "source": source_state(),
+        "source": source,
         "environment": environment_record(m2, lake, args.lean_root),
         "configuration": {
             "only": args.only,

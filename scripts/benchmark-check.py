@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -23,6 +24,7 @@ except ImportError:
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_PATH = ROOT / "reproducibility/benchmark.schema.json"
+EMPTY_SHA256 = hashlib.sha256(b"").hexdigest()
 
 
 def sha256_file(path: pathlib.Path) -> str:
@@ -31,6 +33,26 @@ def sha256_file(path: pathlib.Path) -> str:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def git_text(*args: str) -> str | None:
+    argv = ["git", "-c", f"safe.directory={ROOT.resolve()}", *args]
+    try:
+        result = subprocess.run(
+            argv,
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError as error:
+        print(f"cannot run git: {error}", file=sys.stderr)
+        return None
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip() or f"exit {result.returncode}"
+        print(f"git {' '.join(args)} failed: {detail}", file=sys.stderr)
+        return None
+    return result.stdout.strip()
 
 
 def parse_args() -> argparse.Namespace:
@@ -62,9 +84,21 @@ def main() -> int:
     if "error" in result:
         print(f"benchmark recorded an error: {result['error']}", file=sys.stderr)
         return 1
-    if result["source"]["git_dirty"] and not args.allow_dirty:
-        print("benchmark was recorded from a dirty Git tree", file=sys.stderr)
+    source = result["source"]
+    status_is_dirty = bool(source["git_status_porcelain"])
+    if source["git_dirty"] != status_is_dirty:
+        print("benchmark Git dirty flag disagrees with its recorded status", file=sys.stderr)
         return 1
+    if not args.allow_dirty:
+        if source["git_dirty"]:
+            print("benchmark was recorded from a dirty Git tree", file=sys.stderr)
+            return 1
+        if source["git_status_porcelain"] != "":
+            print("clean benchmark records a nonempty Git status", file=sys.stderr)
+            return 1
+        if source["tracked_diff_sha256"] != EMPTY_SHA256:
+            print("clean benchmark records a nonempty tracked diff", file=sys.stderr)
+            return 1
 
     phases = result["phases"]
     required_phases = {"generation", "checker", "lean_elaboration"}
@@ -72,16 +106,24 @@ def main() -> int:
         print(f"expected phases {sorted(required_phases)}, got {sorted(phases)}", file=sys.stderr)
         return 1
 
-    current_commit = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-        check=True,
-    ).stdout.strip()
-    if result["source"]["git_commit"] != current_commit:
+    checkout_root = git_text("rev-parse", "--show-toplevel")
+    if checkout_root is None:
+        return 1
+    if pathlib.Path(checkout_root).resolve() != ROOT.resolve():
         print(
-            f"benchmark commit {result['source']['git_commit']} does not match checkout {current_commit}",
+            f"Git top level {pathlib.Path(checkout_root).resolve()} does not match checker root {ROOT.resolve()}",
+            file=sys.stderr,
+        )
+        return 1
+    current_commit = git_text("rev-parse", "--verify", "HEAD^{commit}")
+    if current_commit is None:
+        return 1
+    if re.fullmatch(r"[0-9a-f]{40}", current_commit) is None:
+        print(f"git returned an invalid HEAD commit: {current_commit!r}", file=sys.stderr)
+        return 1
+    if source["git_commit"] != current_commit:
+        print(
+            f"benchmark commit {source['git_commit']} does not match checkout {current_commit}",
             file=sys.stderr,
         )
         return 1

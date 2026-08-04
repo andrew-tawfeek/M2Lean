@@ -18,7 +18,7 @@
       "type": "object",
       "required": ["git_commit", "git_dirty", "git_status_porcelain", "tracked_diff_sha256"],
       "properties": {
-        "git_commit": { "type": ["string", "null"] },
+        "git_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
         "git_dirty": { "type": "boolean" },
         "git_status_porcelain": { "type": "string" },
         "tracked_diff_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }

@@ -21,6 +21,7 @@ bash scripts/check-generated.sh
 
 echo "=== 5/8 Apply schemas and test release tooling ==="
 python3 scripts/schema-check.py
+python3 scripts/test-benchmark-provenance.py -q
 python3 scripts/test-generated-check.py -q
 python3 scripts/test-release-record.py -q
 

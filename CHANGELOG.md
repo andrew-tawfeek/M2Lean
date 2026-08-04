@@ -35,6 +35,8 @@ separately.
   remains informational and never changes mathematical assurance.
 - Membership elements and coefficients must be canonical; duplicate IDs and
   object/claim ID collisions are rejected.
+- Benchmark provenance now fails closed if Git cannot identify the checkout;
+  container release jobs explicitly trust only their checked-out workspace.
 
 ### Assurance boundaries
 

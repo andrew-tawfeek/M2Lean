@@ -36,7 +36,7 @@ class ReleaseRecordError(RuntimeError):
 
 def git(repo: pathlib.Path, *args: str) -> str:
     result = subprocess.run(
-        ["git", *args],
+        ["git", "-c", f"safe.directory={repo.resolve()}", *args],
         cwd=repo,
         text=True,
         capture_output=True,

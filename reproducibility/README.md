@@ -14,7 +14,9 @@ bash scripts/bench.sh --output reproducibility/benchmarks/local.json
 Benchmark files record the source commit and dirty state, commands, raw
 stdout/stderr, wall time, peak resident memory, exit status, and timeout state.
 Only a record produced from the clean release commit is evidence for the
-paper's table. Local exploratory results should not be committed.
+paper's table. The producer requires a full Git commit and fails closed if it
+cannot read checkout provenance; the schema does not admit a missing commit.
+Local exploratory results should not be committed.
 
 The release benchmark must be written outside the checkout so that recording
 it does not dirty the release tree. It is attached to the GitHub release
