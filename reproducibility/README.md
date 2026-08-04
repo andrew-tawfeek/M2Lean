@@ -17,8 +17,10 @@ Only a record produced from the clean release commit is evidence for the
 paper's table. Local exploratory results should not be committed.
 
 The release benchmark must be written outside the checkout so that recording
-it does not dirty the tagged tree. It is attached to the GitHub release and
-archive rather than committed back into the release tag.
+it does not dirty the release tree. It is attached to the GitHub release
+rather than committed back into the release tag. The permanent Git archive
+preserves the source and annotated tag; ordinary GitHub release assets are
+not part of that archive unless they receive a separate archival deposit.
 
 `release-record.schema.json` defines a second, external record generated only
 after the annotated tag and permanent archive exist. This post-tag record
@@ -37,27 +39,33 @@ The `releaseCommit`, `archive`, and `paperBenchmarkRecord` fields in the
 tagged `manifest.json` remain null by design. Filling them after tagging would
 change the commit they are meant to identify. Instead:
 
-1. Create the annotated tag from a clean commit.
-2. From that exact clean tag commit, write the full benchmark JSON outside the
-   worktree.
+1. From the exact clean release candidate, write the full benchmark JSON
+   outside the worktree.
+2. If the benchmark requires no source or paper correction, create the
+   annotated tag at exactly the commit recorded in that benchmark.
 3. Create the permanent archive and obtain its permalink or DOI.
-4. Generate the external record, also outside the worktree:
+4. From a clean checkout of the tagged commit, generate the external record,
+   also outside the worktree:
 
 ```sh
-python scripts/release-record.py \
+python3 scripts/release-record.py \
   --tag v0.2.0 \
   --benchmark /release-evidence/paper-v0.2.0.json \
-  --archive-permalink https://doi.org/10.5281/zenodo.RECORD \
-  --archive-doi 10.5281/zenodo.RECORD \
+  --archive-permalink 'https://archive.softwareheritage.org/<SWHID>' \
   --asset /release-evidence/M2Lean-v0.2.0.tar.gz \
   --output /release-evidence/m2lean-v0.2.0-release-record.json
 ```
 
+Supply `--archive-doi` only when the selected archival deposit actually has a
+DOI; a Software Heritage identifier is not a DOI.
+
 The generator refuses dirty worktrees, lightweight tags, a tag not selecting
 `HEAD`, benchmark records from another or dirty commit, in-worktree output,
 duplicate asset names, and overwrites. Publish the benchmark and generated
-record as GitHub release/archive assets. The record itself is not committed
-back into `v0.2.0`.
+record as GitHub release assets. Their hashes are bound to the archived source
+by the record, but the assets themselves are not preserved by ordinary
+Software Heritage Git ingestion unless separately deposited. The record is
+not committed back into `v0.2.0`.
 
 ## Verifying hashes
 

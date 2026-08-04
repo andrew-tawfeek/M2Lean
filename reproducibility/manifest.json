@@ -22,7 +22,7 @@
     "postTagGenerator": "scripts/release-record.py",
     "postTagSchema": "reproducibility/release-record.schema.json",
     "postTagAssetName": "m2lean-v0.2.0-release-record.json",
-    "distribution": "GitHub release and permanent archive asset; never committed back into the tagged tree"
+    "distribution": "GitHub release asset; optional separate archival deposit; never committed back into the tagged tree"
   },
   "environment": {
     "operatingSystem": "Debian GNU/Linux 13 (trixie)",
@@ -100,7 +100,7 @@
       "outputSchema": "reproducibility/benchmark.schema.json"
     },
     {
-      "command": "python scripts/release-record.py --tag v0.2.0 --benchmark /release-evidence/paper-v0.2.0.json --archive-permalink <permanent-https-url> --output /release-evidence/m2lean-v0.2.0-release-record.json",
+      "command": "python3 scripts/release-record.py --tag v0.2.0 --benchmark /release-evidence/paper-v0.2.0.json --archive-permalink <permanent-https-url> --output /release-evidence/m2lean-v0.2.0-release-record.json",
       "expectedExit": 0,
       "outputSchema": "reproducibility/release-record.schema.json",
       "preconditions": [

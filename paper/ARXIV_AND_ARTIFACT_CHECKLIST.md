@@ -19,9 +19,9 @@ Status labels:
 
 - Repository visibility: **private**, confirmed with
   `gh repo view andrew-tawfeek/M2Lean --json visibility`.
-- Working branch: `paper-arxiv-preparation`; the release work is committed and
-  tracked in pull request
-  [`#9`](https://github.com/andrew-tawfeek/M2Lean/pull/9).
+- The release candidate is on `master` after merge of pull request
+  [`#9`](https://github.com/andrew-tawfeek/M2Lean/pull/9); release-time
+  documentation corrections may add a final commit before tagging.
 - Preserved pre-edit paper: tag `paper-pre-arxiv-tightening-2026-08-03` at
   `54dc80f`.
 - Public release tag `v0.2.0`: **does not exist**.
@@ -43,10 +43,11 @@ Status labels:
   benchmark record below pass. The external post-tag record must bind that
   annotated tag and source commit to the benchmark and archive.
 - [ ] **External — archive the tagged release.** Deposit the exact tag with
-  Zenodo or Software Heritage. Add the archival identifier/permalink and artifact commit to
-  `paper/references.bib`, the paper artifact statement, `README.md`,
-  `CITATION.cff`, and the external post-tag release record. The static
-  in-tree manifest fields remain null to avoid self-reference.
+  Zenodo or Software Heritage and generate the external post-tag release
+  record. In a separate post-release commit outside `v0.2.0`, add the archival
+  identifier/permalink and artifact commit to `paper/references.bib`, the
+  paper artifact statement, `README.md`, and `CITATION.cff`. The static in-tree
+  manifest fields remain null to avoid self-reference.
 - [x] **Complete — citation, release, and licensing files.** Evidence:
   `CITATION.cff`, `CHANGELOG.md`, `docs/releases/v0.2.0.md`, `LICENSE`,
   `LICENSES.md`, and `paper/LICENSE.md`. `CITATION.cff` passed the CFF 1.2
@@ -59,7 +60,7 @@ Status labels:
   manifest, standard-tool ledger, and raw file digests without requiring Git;
   `sha256sum -c reproducibility/generated.sha256` also passed for all 15
   listed JSON/Data.lean artifacts.
-- [x] **Complete — deterministic CI/release pipeline implemented.** Evidence:
+- [x] **Complete — recorded-environment byte-replay pipeline implemented.** Evidence:
   `.github/workflows/ci.yml`, `scripts/regenerate-all.sh`,
   `scripts/check-generated.sh`, `scripts/schema-check.py`,
   `scripts/test-all.sh`, and `scripts/audit.sh`. The order is shipped-artifact
@@ -211,9 +212,9 @@ Status labels:
 - [ ] **Release-time pending — final local build and visual QA.** The current
   `paper/m2lean.pdf` and matching `paper/m2lean.bbl` build to 22 pages with no
   unresolved references or box warnings. Repeat the render-and-inspect pass
-  after the release commit, archive identifier, and clean benchmark record
-  have been inserted. The source, bibliography, and required TikZ/listing
-  assets are self-contained in `paper/`.
+  after a post-release manuscript commit inserts the release commit, archive
+  identifier, and clean benchmark record. The source, bibliography, and
+  required TikZ/listing assets are self-contained in `paper/`.
 - [ ] **Release-time pending — clean arXiv source bundle.** Rebuild in a clean
   TeX environment and stage only the necessary `.tex`, `.bbl` (and `.bib` if
   desired), and source assets. Confirm the staged bundle reproduces the final
@@ -242,11 +243,14 @@ Status labels:
 
 1. Commit the integrated-test-passing release candidate.
 2. Generate and validate the clean raw benchmark record; reconcile its source
-   commit with the paper table and external post-tag record.
-3. Make the repository public and verify logged-out access.
-4. Create `v0.2.0`, run the empty-cache tag workflow, and require green CI.
-5. Archive the exact release; propagate its DOI/permalink and commit through
-   the paper and repository metadata.
+   commit and measurements with the paper table, then bind it in the external
+   post-tag record.
+3. Create and push `v0.2.0`, run the empty-cache tag workflow, and require
+   green CI.
+4. Make the repository public and verify logged-out access.
+5. Archive the exact release; in a separate post-release commit, propagate its
+   archival identifier/permalink and release commit through the paper and
+   repository metadata.
 6. Assemble and clean-build the minimal arXiv source bundle.
 7. Complete the author-controlled arXiv metadata, category, endorsement,
    license, and hosted-preview checks, stopping immediately before the final

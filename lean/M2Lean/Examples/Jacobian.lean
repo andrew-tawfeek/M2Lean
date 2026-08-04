@@ -1,5 +1,5 @@
 /-
-M2Lean main example: the Jacobian-conjecture counterexample.
+M2Lean case study: the Alpöge–Fable Jacobian-conjecture counterexample.
 
 Background (as reported in July 2026).  The Jacobian Conjecture
 (O.-H. Keller, 1939) asserts that a polynomial map `F : ℂⁿ → ℂⁿ` whose

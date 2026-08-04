@@ -17,7 +17,9 @@ Status for the M2Lean 0.2.0 release candidate, August 2026.
 ## Near-term priorities
 
 1. Publish and archive an immutable 0.2.0 artifact, then record its commit and
-   DOI in the paper, citation metadata, and reproducibility manifest.
+   archival identifier or permalink in the paper, citation metadata, and
+   external post-tag release record. The corresponding fields in the static
+   in-tree manifest remain null by design.
 2. Formalize the Lex comparator bridge and promote Lex Gröbner-backed claims.
 3. Formalize graded homogeneity and the graded-complex checker.
 4. Design separate certificate families for exactness, minimality, cokernel

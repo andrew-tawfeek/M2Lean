@@ -1,5 +1,5 @@
 /-
-M2Lean flagship example (README §5.6, milestone M4).
+M2Lean twisted-cubic end-to-end case study (README §5.6, milestone M4).
 
 Macaulay2 discovered that the cone over the twisted cubic curve and
 the line {(t,1,0,0)} ⊆ 𝔸⁴ have no common point, and exported the

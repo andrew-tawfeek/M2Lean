@@ -100,7 +100,7 @@ For a user-local installation, run this once from the repository root:
 installPackage("M2Lean", FileName => "m2/M2Lean.m2")
 ```
 
-In a fresh session the installed form is simply:
+In a fresh session the installed form is:
 
 ```macaulay2
 loadPackage "M2Lean"
@@ -142,9 +142,9 @@ trusted or live Macaulay2 process. More detail is in
 - **Twisted cubic:** Macaulay2 supplies membership, Gröbner, complex, and
   unit-ideal evidence. Lean proves the unit-ideal conclusion for the two
   ideals, hence their affine zero sets have no common point.
-- **Jacobian example:** Lean verifies the constant determinant, promotes all
-  nine exported membership certificates through the soundness theorem, and
-  proves a rational collision for the announced three-dimensional map. It
+- **Alpöge–Fable Jacobian example:** Lean verifies the constant determinant,
+  applies the membership soundness theorem to all nine exported certificates,
+  and proves a rational collision for the announced three-dimensional map. It
   refutes both the explicitly defined rational-point injectivity formulation
   and a polynomial-map inverse formulation over `ℚ`. The final
   noninjectivity step evaluates the displayed points directly, so the
@@ -191,7 +191,7 @@ Record benchmarks as machine-readable JSON with:
 bash scripts/bench.sh --output reproducibility/benchmarks/local.json
 ```
 
-The pinned environment, expected outcomes, and authoritative artifact hashes
+The recorded environment, expected outcomes, and authoritative artifact hashes
 are in [`reproducibility/manifest.json`](reproducibility/manifest.json). The
 same artifact hashes are available as the standard-tool
 [`reproducibility/generated.sha256`](reproducibility/generated.sha256) ledger.

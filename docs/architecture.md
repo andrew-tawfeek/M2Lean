@@ -98,7 +98,7 @@ resolution statement.
 The logical trust boundary is described in [`trust-model.md`](trust-model.md).
 Operational reproducibility is separate: the release gate verifies the
 shipped artifacts, regenerates JSON and generated Lean data, checks their
-raw-byte SHA-256 digests, builds theorem files, and audits axioms. The pinned
+raw-byte SHA-256 digests, builds theorem files, and audits axioms. The recorded
 environment and authoritative artifact inventory live in
 [`../reproducibility/manifest.json`](../reproducibility/manifest.json); the
 same hashes are exposed in the standard-tool

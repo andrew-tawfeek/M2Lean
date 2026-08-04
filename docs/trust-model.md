@@ -89,7 +89,7 @@ influences mathematical acceptance.
   cokernel identification, or Betti numbers.
 - The graph theorem is currently instantiated for the six-vertex wheel;
   other graph documents do not by themselves produce kernel theorems.
-- The Jacobian case study formalizes rational-point injectivity and a
+- The Alpöge–Fable Jacobian case study formalizes rational-point injectivity and a
   polynomial-map inverse formulation over `ℚ` in dimension three. Its nine
   membership certificates are all promoted through soundness, but the final
   noninjectivity proof independently evaluates the displayed collision.

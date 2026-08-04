@@ -1,4 +1,4 @@
--- Graph 3-colorability as Nullstellensatz infeasibility (main example).
+-- Graph 3-colorability as a Nullstellensatz infeasibility case study.
 --
 -- A proper k-colouring of a graph G is the same as a common zero of the
 -- "colouring ideal" (De Loera-Lee-Malkin-Margulies; Bayer): take one
@@ -24,7 +24,7 @@
 -- We export two graphs of increasing hardness.  The certificate byte
 -- counts (below) make the finding-hard / checking-easy asymmetry visible:
 -- a bigger, harder graph needs a bigger witness, but every witness is
--- checked by the same trivial polynomial arithmetic.
+-- checked by the same direct polynomial arithmetic.
 loadPackage("M2Lean", FileName => "m2/M2Lean.m2", Reload => true)
 
 -- colouringDocument(name, n, edges, file): build the 3-colouring ideal of

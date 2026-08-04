@@ -20,10 +20,11 @@ separately.
   consecutive composition.
 - The `m2lean-check` CLI, Macaulay2 `verifyWithLean` integration, and the
   experimental `by macaulay2` tactic.
-- Twisted-cubic, Jacobian, graph-coloring, separability, finite-field, toric,
-  Stanley--Reisner, and symmetric-polynomial examples.
-- Deterministic certificate/Data.lean replay, structured negative fixtures,
-  axiom auditing, and machine-readable benchmark records.
+- Twisted-cubic, Alpöge–Fable Jacobian, graph-coloring, separability,
+  finite-field, toric, Stanley--Reisner, and symmetric-polynomial examples.
+- Recorded-environment certificate and `Data.lean` byte-for-byte replay,
+  structured negative fixtures, axiom auditing, and machine-readable benchmark
+  records.
 
 ### Changed
 

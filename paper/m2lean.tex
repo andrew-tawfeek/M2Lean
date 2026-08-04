@@ -106,9 +106,11 @@ computations together with checkable evidence---for example,
 ideal-membership cofactors, change-of-basis matrices, and standard
 representations of S-polynomials---in a versioned JSON protocol for
 exact polynomial algebra over $\QQ$ and prime fields.  A \lean{}
-library supplies executable checkers and, for most claim families,
-kernel-checked soundness theorems relating checker acceptance to
-\mathlib{} propositions.
+library supplies executable checkers for all seven claim kinds and
+kernel-checked soundness theorems for polynomial identity, ideal
+membership, span inclusion, chain-complex composition, and GRevLex
+Gr\"obner and non-membership claims.  Lex Gr\"obner and non-membership
+claims and the graded-complex claim remain executable-only.
 
 We distinguish two outcomes that are often conflated.  The
 \code{m2lean-check} executable produces a runtime verification report;
@@ -125,8 +127,8 @@ degree-reverse-lexicographic monomial order and its agreement with the
 executable representation, and soundness for Gr\"obner-basis and
 non-membership certificates under that order.  Case studies cover a
 scheme-theoretically empty intersection involving the twisted cubic,
-the 2026 counterexample to the Jacobian conjecture, and
-Nullstellensatz certificates for graph non-colourability.  In an
+the 2026 Alp\"oge--Fable counterexample to the Jacobian conjecture, and
+Nullstellensatz certificates for graph non-colourability.  In the
 runtime-path test suite, 15 valid documents are accepted and 20
 malformed or corrupted documents are rejected.  The evaluation is
 intended as a reproducibility and failure-detection study of the
@@ -299,12 +301,13 @@ The version-controlled \code{json2lean.py} generator used by the
 examples is not verified.  Kernel checking protects the theorem that
 is generated, but it does not by itself prove that the literals are a
 faithful transcription of a particular JSON file.  The checked-in
-release pipeline now regenerates all eleven JSON documents and four
-derived \lean{} data modules, verifies their raw-byte digests against a
-committed SHA-256 ledger, and only then builds the theorem modules.  This
-detects drift
-and establishes deterministic replay through the current generator; it
-does not constitute a semantic verification of the generator itself.
+release pipeline checks the raw-byte digests of all eleven shipped JSON
+documents and four derived \lean{} data modules, builds the runtime
+verifier, and regenerates those artifacts in the environment resolved for
+that run.  It then checks their digests again against the committed SHA-256
+ledger and builds the theorem modules.  A successful run establishes byte-for-byte
+replay in that environment and detects drift; it does not establish
+environment-independent determinism or semantically verify the generator.
 
 Throughout the paper, code listings are color-coded by their owning
 system:
@@ -563,7 +566,7 @@ The semantics is a coefficient-generic function
 interpreting a term list as a sum of monomials, together with a
 lemma suite proved once and for all: \code{toMv} commutes with
 concatenation, term-wise product, permutation, merging, and
-normalization.  The payoff is the soundness of two core executable
+normalization.  This yields soundness for two core executable
 predicates used throughout the certificate checkers:
 \begin{lstlisting}[style=leanstyle]
 theorem polyEq_sound   (h : polyEq p q = true)     : toMv n p = toMv n q
@@ -618,13 +621,12 @@ the check by kernel reduction:
 theorem certificate_checks :
     checkMembership onePoly gens cofactors = true := by decide +kernel
 \end{lstlisting}
-Two implementation notes may save others time.  First, any
-well-founded recursion in a checker silently blocks such kernel
-evaluation; our merge step is a structural \code{foldr} for exactly
-this reason.  Second, \code{Rat} arithmetic does not reduce in the
-elaborator's evaluator but does in the kernel (which has fast
-arbitrary-precision arithmetic including \code{Nat.gcd}), so
-\code{decide +kernel} rather than plain \code{decide} is required.
+Two implementation details affected kernel evaluation.  First, the
+well-founded recursive formulations tried for the merge step did not
+reduce in these checks, so the implementation uses a structural
+\code{foldr}.  Second, plain \code{decide} did not reduce the relevant
+\code{Rat} computations in this development, whereas
+\code{decide +kernel} did.
 Applying the corresponding soundness theorem to this equality, rather
 than the CLI report, produces the mathematical theorem.
 
@@ -738,10 +740,11 @@ certificate checker.  The answer enters the proof as data.  If the
 subprocess, parse, or transcription supplies data that do not establish
 the fixed goal, kernel checking fails; under the trust assumptions of
 \S\ref{sec:trust}, the external process cannot authorize a false goal.
-The demo file is part of the default build graph, so a clean build
-exercises a live \lean{}-to-\M{} round trip at elaboration time.  The
-clean-cache release job exercises this path; an ordinary cache-restored
-CI run is not guaranteed to re-elaborate an unchanged demo module.
+The release gate explicitly builds \code{M2Lean.Examples.TacticDemo}
+after the main library target.  This exercises a live \lean{}-to-\M{}
+round trip when the module is elaborated.  The clean-cache release job
+guarantees that elaboration; an ordinary cache-restored CI run may reuse
+an unchanged demo module.
 This prototype handles only ground goals already expressed in M2Lean's
 sparse representation.  The tactics of Shen et al. support a broader
 set of reflected polynomial goals~\cite{shen-polynomial-tactics}; M2Lean's
@@ -751,9 +754,9 @@ tactic is included to demonstrate reuse of the document protocol.
 
 \subsection{Twisted-cubic disjointness}\label{sec:flagship}
 
-This standard example is small enough
-that the full certificate can be inspected and replayed in continuous
-integration (cf.~\cite{eisenbud}).  It demonstrates the end-to-end
+This standard example has a certificate short enough for direct
+inspection and replay in continuous integration (cf.~\cite{eisenbud}).
+It demonstrates the end-to-end
 semantics; it is not intended as a difficult search problem.  Let
 $R = \QQ[x,y,z,w]$ and let
 \[
@@ -823,8 +826,8 @@ assert(I + J == 1);                       -- unit ideal
 \end{lstlisting}
 
 \noindent
-For this small example, the assertion is also easy to verify directly.
-Its role is to provide a transparent query whose algebraic and
+The assertion can also be verified directly.  Its role is to provide a
+transparent query whose algebraic and
 geometric interpretations can be followed through the full pipeline.
 
 \paragraph{Step 2: certificate (\M{}).}
@@ -914,18 +917,21 @@ the declarations used are
 \code{propext}, \code{Classical.choice}, and \code{Quot.sound}---no
 \code{sorry}, no project-specific axioms, no \code{native\_decide}.
 
-\subsection{The 2026 Jacobian counterexample}\label{sec:jacobian}
+\subsection{The 2026 Alp\"oge--Fable counterexample}\label{sec:jacobian}
 
 The Jacobian conjecture, introduced by Keller~\cite{keller1939},
 asserts that a polynomial map $F:\CC^n\to\CC^n$ with nonzero constant
 Jacobian determinant has a polynomial inverse.  In July 2026,
-Alp\"oge announced the following dimension-three counterexample
-\cite{alpoge-jacobian}.  Contemporaneous Isabelle/HOL and independent
+Alp\"oge announced the following dimension-three counterexample,
+crediting Akhil Mathew for posing the question and the AI system Claude
+Fable~5 for the construction~\cite{alpoge-jacobian}.  We therefore call
+it the Alp\"oge--Fable map.  Contemporaneous Isabelle/HOL and independent
 Lean developments also formalized the determinant and collision, with
 the Isabelle entry proving the implication for the classical
-conjecture~\cite{jacobian-afp,jacobian-lean-independent}.  The present case study
-has the narrower purpose of recording what the M2Lean artifact checks
-and how those checks enter its \lean{} theorem.
+conjecture~\cite{jacobian-afp,jacobian-lean-independent}.  M2Lean makes no
+discovery claim for the map; the present case study records the narrower
+facts checked by this artifact and how those checks enter its \lean{}
+theorem.
 
 The mathematical verification separates into a constant-Jacobian
 identity and a collision of rational points.  The map is
@@ -991,8 +997,8 @@ certificates in the kernel.  The example applies
 \code{collision\_certified}; that conjunction is not used by the final
 non-injectivity proof.  Instead, \code{F\_not\_injective} evaluates the
 displayed formula at $P_1$ and $P_2$ directly with \code{norm\_num} and
-uses their unequal first coordinates.  Thus the fully promoted
-certificate path and the final collision proof are parallel validation
+uses their unequal first coordinates.  Thus the kernel-instantiated
+certificate checks and the final collision proof are parallel validation
 paths in the current file; it would be inaccurate to describe the latter
 as derived from all nine memberships.
 
@@ -1082,7 +1088,7 @@ conclusion relies on the classical encoding argument above.
 \section{Evaluation}\label{sec:experiments}
 
 The evaluation asks three bounded questions: whether valid example
-documents are accepted, whether representative certificate and format
+documents are accepted, whether selected adversarial certificate and format
 defects are rejected, and what the current end-to-end costs are on the
 included instances.  It does not attempt to establish asymptotic or
 research-scale performance.
@@ -1161,8 +1167,9 @@ The single-run generation observations from the development host were
 for \path{jacobian.m2}, 1,250\,ms for \path{coloring.m2} (two
 documents), and 419\,ms for \path{appendix.m2} (six documents).  These
 figures include \M{} startup and file emission and are reported as
-descriptive observations, not summary statistics; the current
-\path{scripts/bench.sh} can repeat all five generation cases and retain
+descriptive observations, not summary statistics.  The earlier manual
+snapshot did not include \path{polynomial.m2}; the current
+\path{scripts/bench.sh} covers all five generation cases and retains
 their raw samples.  The data do not isolate polynomial-checker
 cost from process and parser overhead, so no sub-millisecond checker
 claim is made.
@@ -1182,20 +1189,22 @@ is still required before these measurements become archival evidence.
 
 \subsection{Reproducibility scope}
 
-The checked-in continuous-integration workflow first verifies the fifteen
-shipped generated artifacts and then builds only the runtime verifier.  It
-regenerates eleven JSON examples and four \code{*Data.lean} modules, verifies
-them again against a committed SHA-256 ledger, applies the JSON Schema as a
-prefilter, executes all 35 acceptance and rejection expectations, builds the
-complete \lean{} library, and runs the axiom audit.  Thus the mechanical
-JSON-to-theorem replay is now a release gate,
+The checked-in continuous-integration workflow first checks the recorded
+SHA-256 digests of the fifteen shipped generated artifacts and then builds
+the runtime verifier.  It regenerates eleven JSON examples and four
+\code{*Data.lean} modules, checks their digests again against the committed
+ledger, applies the JSON Schema as a prefilter, executes all 35 acceptance and
+rejection expectations, builds the complete \lean{} library, and runs the
+axiom audit.  Thus byte-for-byte regeneration, runtime validation, and
+theorem-module builds in the recorded environment are now a release gate,
 subject to the unverified-generator qualification above.  A separate
 tagged or manually dispatched job omits restoration of project build state
 and records raw generation, verification, memory, and theorem-elaboration
-measurements.  At the time of writing, however, the manifest's release
-commit, archival identifier, and clean-commit benchmark record remain unset;
-those are release requirements rather than claims already satisfied by
-this paper.
+measurements.  The immutable in-tree manifest intentionally leaves its
+post-tag identity fields null.  At the time of writing, the external post-tag
+record has not yet been generated, so a public release, permanent archive,
+and clean-commit benchmark remain requirements rather than claims satisfied
+by this paper.
 
 \section{Limitations and roadmap}\label{sec:roadmap}
 
@@ -1266,8 +1275,8 @@ and libraries made this interoperability experiment possible.
 
 \section{Complete protocol document}\label{app:doc}
 
-The valid fixture \code{membership.json}, abridged only in
-whitespace: the claim certifies $2x \in (x+y,\, x-y)$ in
+The following is the valid fixture \code{membership.json}, abridged only in
+whitespace.  The claim certifies $2x \in (x+y,\, x-y)$ in
 $\QQ[x,y]$ with cofactors $(1,1)$.
 
 \begin{lstlisting}[style=jsonstyle]
@@ -1320,7 +1329,8 @@ The corresponding verification report:
 
 Each of the six examples below is condensed to the \M{} computation
 (\textcolor{m2col}{red}), the certificate crossing the protocol
-boundary, and what \lean{} verifies (\textcolor{leancol}{blue}).  All six
+boundary, and what the \lean{} runtime verifier accepts
+(\textcolor{leancol}{blue}).  All six
 documents are generated by
 \code{examples/appendix/appendix.m2} and verified by
 \code{m2lean-check} in the test suite; the displayed identities are

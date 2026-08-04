@@ -1,4 +1,4 @@
--- The flagship example (README 5.6, milestone M4).
+-- Twisted-cubic end-to-end case study (README §5.6, milestone M4).
 --
 -- The twisted cubic curve C in P^3 is cut out by the 2x2 minors of
 --   [ x y z ]

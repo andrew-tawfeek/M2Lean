@@ -1,4 +1,4 @@
--- The Jacobian-conjecture counterexample (main example; README §5).
+-- The Alpoge--Fable Jacobian-conjecture counterexample (case study; README §5).
 --
 -- Background (as reported July 2026).  The Jacobian Conjecture (Keller's
 -- problem, 1939) asserts that a polynomial map F : C^n -> C^n whose
