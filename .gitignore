@@ -18,6 +18,10 @@ paper/*.synctex.gz
 build/
 *.tmp
 texput.log
+
+# Local release and arXiv staging
+/dist/
+
 # Python bytecode and tool caches
 __pycache__/
 *.py[cod]

@@ -1,6 +1,6 @@
 # Roadmap
 
-Status for the M2Lean 0.2.0 release candidate, August 2026.
+Status after the public M2Lean 0.2.0 artifact release, August 2026.
 
 | Area | Status | Evidence or boundary |
 |---|---|---|
@@ -12,14 +12,15 @@ Status for the M2Lean 0.2.0 release candidate, August 2026.
 | Graded complexes | checked | dimensions, twists, homogeneity, composition; semantic proof open |
 | M2 and CLI integration | implemented | direct package loading, installation path, `verifyWithLean` |
 | Lean tactic | experimental | ground membership goals; invokes live M2 at elaboration time |
-| Public distribution | in progress | GitHub tag/archive, Reservoir, and M2 package review are release tasks |
+| Public distribution | artifact released | GitHub release and Software Heritage archive complete; Reservoir and M2 package review remain external follow-up |
 
 ## Near-term priorities
 
-1. Publish and archive an immutable 0.2.0 artifact, then record its commit and
-   archival identifier or permalink in the paper, citation metadata, and
-   external post-tag release record. The corresponding fields in the static
-   in-tree manifest remain null by design.
+1. Request Macaulay2 package review, revisit Reservoir when its eligibility
+   conditions are met, and propagate the arXiv identifier after assignment.
+   The immutable in-tree manifest retains null post-tag identity fields by
+   design; the external release record binds those identities without
+   self-reference.
 2. Formalize the Lex comparator bridge and promote Lex Gröbner-backed claims.
 3. Formalize graded homogeneity and the graded-complex checker.
 4. Design separate certificate families for exactness, minimality, cokernel
