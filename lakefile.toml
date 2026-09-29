@@ -3,8 +3,6 @@ version = "0.2.0"
 description = "Certificate-based interoperability between Macaulay2 and Lean 4"
 keywords = ["math", "formal-verification", "computer-algebra", "groebner-bases", "cli"]
 homepage = "https://github.com/andrew-tawfeek/M2Lean"
-license = "MIT"
-licenseFiles = ["LICENSE"]
 srcDir = "lean"
 defaultTargets = ["M2Lean"]
 
