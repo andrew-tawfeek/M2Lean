@@ -108,7 +108,3 @@ files that instantiate the soundness theorems work the same way.
 In short, `verifyWithLean` is a quick independent check whose correctness has
 been proven in advance. The tactic, or a theorem file, is where Lean's kernel
 checks each individual certificate.
-
-## License
-
-MIT; see [`LICENSE`](LICENSE).
