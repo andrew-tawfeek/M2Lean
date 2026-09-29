@@ -58,6 +58,11 @@ trust boundaries.
 
 ## Quick start
 
+For a guided local demonstration (including a Windows PowerShell launcher),
+see [`docs/demo.md`](docs/demo.md). Run `bash scripts/demo.sh` on Linux/WSL or
+`.\scripts\demo.ps1` from PowerShell to generate and verify a certificate,
+reject tampered evidence, and check the live Lean tactic example.
+
 The primary reproducibility environment is Debian 13 (including WSL2),
 Macaulay2 1.24.11, Lean 4.32.0, and the mathlib revision pinned in
 [`lake-manifest.json`](lake-manifest.json). The scripts require
