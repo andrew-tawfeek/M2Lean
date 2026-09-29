@@ -5,7 +5,6 @@ keywords = ["math", "formal-verification", "computer-algebra", "groebner-bases",
 homepage = "https://github.com/andrew-tawfeek/M2Lean"
 license = "MIT"
 licenseFiles = ["LICENSE"]
-readmeFile = "README.md"
 srcDir = "lean"
 defaultTargets = ["M2Lean"]
 

@@ -5,7 +5,7 @@ These theorems realize the project's central contract (SPEC §4, §6):
 if a `proved`-level checker accepts, the corresponding *mathlib*
 proposition holds.  Acceptance of a corrupted certificate would
 require a false theorem here — and these are checked by the Lean
-kernel with no additional axioms (see `M2Lean/Examples/Audit.lean`).
+kernel with no additional axioms.
 -/
 import Mathlib
 import M2Lean.Protocol.Sparse
