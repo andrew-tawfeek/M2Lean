@@ -108,3 +108,61 @@ files that instantiate the soundness theorems work the same way.
 In short, `verifyWithLean` is a quick independent check whose correctness has
 been proven in advance. The tactic, or a theorem file, is where Lean's kernel
 checks each individual certificate.
+
+## M2Lean vs Macaulean: ideal membership
+
+[Macaulean](https://github.com/Macaulean/Macaulean) also proves ideal
+membership with help from Macaulay2, through its `m2idealmem` tactic. Both
+tactics ask Macaulay2 for cofactors `cᵢ` with `f = Σ cᵢ·gᵢ` and both
+produce proofs checked by Lean's kernel, but they differ in how the
+identity is proved and in what the theorem says.
+
+| | M2Lean `by macaulay2` | Macaulean `m2idealmem` |
+|---|---|---|
+| How the identity is proved | Proof by reflection: `decide` has the kernel evaluate `checkMembership f gs cs = true`, and `checkMembership_sound` turns that into the theorem | The tactic rebuilds `Σ cᵢ·gᵢ` as a Lean term and closes the goal with `simp` and `grind` |
+| What is proved | `toMv n f ∈ spanOf n gs`: membership in mathlib's `MvPolynomial (Fin n) ℚ` | For `xᵢ : ℚ`, if every `gⱼ = 0` then `f = 0` (a consequence of membership) |
+| How the goal is written | Sparse data (`SPoly ℚ` literals) | Ordinary Lean terms |
+| Fixed cost | Imports Mathlib: about 4.7 s and 6.7 GB | About 1 s and 1.6 GB |
+
+### Benchmark
+
+Both tactics were run on the same generated problems (Macaulay2 1.26.06,
+Xeon E5-1620 v2, 30-minute limit). Each problem was also run with the proof
+replaced by `sorry`, to separate the cost of *stating* the goal from the
+cost of *proving* it. Seconds, median of up to 3 runs; statement times
+include each tool's import cost.
+
+| Problem | Terms in f | M2Lean statement | **M2Lean proof** | Macaulean statement | **Macaulean proof** |
+|---|---|---|---|---|---|
+| 8 generators | 72 | 5.2 | **2.2** | 13.7 | **3.1** |
+| 16 generators | 144 | 6.0 | **5.5** | 55.6 | **7.4** |
+| 32 generators | 288 | 9.4 | **21.0** | 235.5 | **32.6** |
+| 64 generators | 576 | 58.6 | **93.1** | 1136 | fails¹ |
+| cofactor degree 3 | 119 | 5.2 | **6.1** | 52.2 | **6.0** |
+| cofactor degree 4 | 209 | 5.5 | **14.6** | 245.0 | **14.7** |
+| cofactor degree 6 | 476 | 6.4 | **72.4** | over 30 min | — |
+| Macaulean's `foo3` | 40 | 5.0 | **2.9** | 12.7 | **2.7** |
+
+¹ Macaulean's tactic hard-codes `simp (maxSteps := 100000)`, which is
+exceeded at this size.
+
+What the numbers show:
+
+- **The proof methods cost about the same.** Reflection is not what makes
+  M2Lean faster: proof times are equal at cofactor degrees 3–4 and within
+  about 1.5× at 32 generators.
+- **The input format is the main difference.** Elaborating a long
+  polynomial goal written as Lean terms over ℚ is expensive (typeclass
+  inference for every `+`, `*`, `^` and numeral) and grows roughly
+  quadratically with the number of terms. M2Lean's goals are data and stay
+  cheap. The flip side is usability: Macaulean accepts the goals users
+  naturally write.
+- **Limits differ.** Macaulean fails at 64 generators (its `simp` step
+  budget) and cannot state the degree-6 goal within 30 minutes. M2Lean
+  completes these, but its memory grows steeply: 15–16 GB at the largest
+  completed problems, and about 35 GB (killed) at cofactor degree 12.
+- **On small problems Macaulean is faster end to end**, because M2Lean
+  pays Mathlib's import cost.
+- The compiled `m2lean-check` checks every one of these certificates in
+  under 0.2 s, but that path is not formally verified (see "How the
+  checker works").
