@@ -46,6 +46,47 @@ jarr = L -> "[" | demark(",", L) | "]"
 jobj = L -> "{" | demark(",", for kv in L list (jstr kv#0 | ":" | kv#1)) | "}"
 jint = n -> toString n
 
+-- split compact JSON (as emitted above) into punctuation and atoms
+jsonPunct = {"{", "}", "[", "]", ",", ":"}
+jsonTokens = s -> (
+    cs := characters s; n := #cs; toks := new MutableList; i := 0; j := 0;
+    while i < n do (
+        if cs#i === "\"" then (
+            j = i + 1;
+            while cs#j =!= "\"" do j = j + (if cs#j === "\\" then 2 else 1);
+            toks#(#toks) = concatenate cs_{i..j}; i = j + 1)
+        else if member(cs#i, jsonPunct) then (toks#(#toks) = cs#i; i = i + 1)
+        else if cs#i === " " or cs#i === "\n" then i = i + 1
+        else (
+            j = i;
+            while j < n and not member(cs#j, jsonPunct) and cs#j =!= " " do j = j + 1;
+            toks#(#toks) = concatenate cs_{i..j-1}; i = j));
+    toList toks)
+
+-- indent compact JSON by `width` spaces, keeping key order; arrays of
+-- scalars (e.g. exponent vectors) and empty containers stay on one line
+jsonPretty = (s, width) -> (
+    toks := jsonTokens s; out := new MutableList; depth := 0; i := 0; k := 0;
+    pad := d -> "\n" | concatenate(d * width : " ");
+    while i < #toks do (
+        t := toks#i;
+        if t === "{" and toks#(i+1) === "}" then (out#(#out) = "{}"; i = i + 2)
+        else if t === "[" and (
+            k = i + 1;
+            while not member(toks#k, {"[", "{", "]"}) do k = k + 1;
+            toks#k === "]") then (
+            out#(#out) = concatenate for u in toks_{i..k} list (if u === "," then ", " else u);
+            i = k + 1)
+        else (
+            out#(#out) = (
+                if t === "{" or t === "[" then (depth = depth + 1; t | pad depth)
+                else if t === "}" or t === "]" then (depth = depth - 1; pad depth | t)
+                else if t === "," then "," | pad depth
+                else if t === ":" then ": "
+                else t);
+            i = i + 1));
+    concatenate toList out)
+
 ----------------------------------------------------------------------
 -- polynomial encoding
 ----------------------------------------------------------------------
@@ -355,7 +396,7 @@ writeM2LeanDocument (M2LeanDocument, String) := o -> (D, filename) -> (
             ("options", jobj {}),
             ("deterministic", "true")})};
     fh := openOut filename;
-    fh << doc << endl << close;
+    fh << jsonPretty(doc, 2) << endl << close;
     filename)
 
 ----------------------------------------------------------------------
