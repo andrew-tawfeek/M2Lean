@@ -6,7 +6,7 @@
 -- the report itself is not a Lean proof object.
 
 -- SETUP: point Macaulay2 at this checkout.
-changeDirectory "/mnt/c/Users/Andrew/Macaulay2/M2Lean"
+changeDirectory "/mnt/c/Users/Andrew/Macaulay2/M2-Lean/M2Lean"
 loadPackage("M2Lean", FileName => "m2/M2Lean.m2")
 
 ====
