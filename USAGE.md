@@ -1,8 +1,9 @@
 Basic usage:
 
 1. Launch M2
-2. `changeDirectory "/mnt/c/Users/Andrew/Macaulay2/M2-Lean/M2Lean"`
-3. `loadPackage("M2Lean", FileName => "m2/M2Lean.m2")`
+2. `loadPackage("M2Lean", FileName => "THIS_REPO/m2/M2Lean.m2")` e.g. 
+
+`loadPackage("M2Lean", FileName => "/mnt/c/Users/Andrew/Macaulay2/M2-Lean/M2Lean/m2/M2Lean.m2")`
 
 Then exampels can be readily computed.
 
