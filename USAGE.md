@@ -20,6 +20,8 @@ f // gens I
 D = newM2LeanDocument "demo-membership";
 membershipClaim(D, "membership", f, I);
 verifyWithLean D
+-- Save the certificate to the Windows desktop.
+writeM2LeanDocument(D, "/mnt/c/Users/Andrew/Desktop/" | D#"docId" | ".json")
 -- Expected: membership accepted [proved].
 ```
 ====
@@ -32,6 +34,8 @@ D = newM2LeanDocument "demo-equal-ideals";
 spanInclusionClaim(D, "I-in-J", I, J);
 spanInclusionClaim(D, "J-in-I", J, I);
 verifyWithLean D
+-- Save the certificate to the Windows desktop.
+writeM2LeanDocument(D, "/mnt/c/Users/Andrew/Desktop/" | D#"docId" | ".json")
 -- Expected: both inclusions accepted [proved].
 -- Together these show that I and J generate the same ideal.
 ```
@@ -46,6 +50,8 @@ D = newM2LeanDocument "demo-groebner";
 gbClaim(D, "basis", I);
 nonMembershipClaim(D, "x-not-in-I", x, I, "groebnerClaim" => "basis");
 verifyWithLean D
+-- Save the certificate to the Windows desktop.
+writeM2LeanDocument(D, "/mnt/c/Users/Andrew/Desktop/" | D#"docId" | ".json")
 -- Expected: basis and x-not-in-I accepted [proved].
 -- The negative claim uses a nonzero remainder and the certified basis.
 ```
@@ -62,6 +68,8 @@ gens gb U
 D = newM2LeanDocument "demo-empty-intersection";
 unitIdealClaim(D, "one-in-sum", U);
 verifyWithLean D
+-- Save the certificate to the Windows desktop.
+writeM2LeanDocument(D, "/mnt/c/Users/Andrew/Desktop/" | D#"docId" | ".json")
 -- Expected: one-in-sum accepted [proved].
 -- The certificate expresses 1 as a combination of generators of I+J.
 -- A common zero would therefore imply 1=0.
@@ -79,6 +87,8 @@ C.dd_1 * C.dd_2
 D = newM2LeanDocument "demo-chain-complex";
 chainComplexClaim(D, "composition-zero", {C.dd_1, C.dd_2});
 verifyWithLean D
+-- Save the certificate to the Windows desktop.
+writeM2LeanDocument(D, "/mnt/c/Users/Andrew/Desktop/" | D#"docId" | ".json")
 -- Expected: composition-zero accepted [proved].
 -- This certifies composition zero, not exactness or minimality.
 ```
